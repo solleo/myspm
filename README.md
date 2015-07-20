@@ -11,6 +11,7 @@
 <li><code>myspm_results.m</code> generates results reports of maximal intensity projection(MIP or 'glass brain') and orthogonal slices view and a scatter plot for each suprathreshold cluster.</li>
 <li><code>myspm_graph.m</code> creates a scatter plot and a linear regression line.</li>
 <li><code>myfsl_atlasquery.m</code> returns the probablistic atals information of a given MNI coordiante using Harvard-Oxford cortical/subcortical atlases, cerebellar atlas, and JHU-ICBM DTI atlas included in FSL ($FSLDIR required to be valid).</li>
+<li><code>myspm_NMatlas.m</code> returns structure names from [spm12]/tpm/labels_Neuromorphometrics[.xml|.nii], which is derived from the "MICCAI 2012 Grand Challenge and Workshop on Multi-Atlas Labeling" (https://masi.vuse.vanderbilt.edu/workshop2012/index.php/Challenge_Details). These data were released under the Creative Commons Attribution-NonCommercial (CC BY-NC) with no end date. Users should credit the MRI scans as originating from the OASIS project (http://www.oasis-brains.org/) and the labeled data as "provided by Neuromorphometrics, Inc. (http://Neuromorphometrics.com/) under academic subscription".  These references should be included in all workshop and final publications.</li>
 </ul>
 </article>
   </div>
