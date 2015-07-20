@@ -1,6 +1,6 @@
 <article class="markdown-body entry-content" itemprop="mainContentOfPage"><h1><a id="user-content-myspm" class="anchor" href="#myspm" aria-hidden="true"><span class="octicon octicon-link"></span></a>myspm</h1>
 
-<p>SPM (Statistical Parametric Mapping) is a well-known MATLAB toolbox for neuroimaging analysis. Most of analyses are programable using the MATLAB batch editor including generating result reports with tables (“Results Report”).</p>
+<p>SPM (Statistical Parametric Mapping; www.fil.ion.ucl.ac.uk/spm/) is a well-known MATLAB toolbox for neuroimaging analysis. Most of analyses are programable using the MATLAB batch editor including generating result reports with tables (“Results Report”).</p>
 
 <p>But plotting orthogonal sections of a structural image, with pretty suprathreshold blobs, overlaid is not available from the MATLAB batch editor. When you have many models and contrast to test, exploring all different models and contrasts require A TONS of mouse clicking, which might cause carpal tunnel syndrome.</p>
 
