@@ -38,14 +38,14 @@ if ~isfield(EXP,'print')
 end
 today=datestr(now,'yyyymmmdd');
 fname_tab=fullfile(EXP.dir_name,['spm_',today,'.csv']);
-fmt={   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',     '%s',     '%0.2f'};
+fmt={   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',  '%s','%0.2f',  '%s','%0.2f'};
 tab_fmt= cell2fmt (fmt);
 
 if EXP.append==0 && EXP.print==1
   src=fullfile(EXP.dir_name,['spm_',today,'.ps']);
   system(['rm -f ',src]);
   fid=fopen(fname_tab,'w');
-  hdr_fmt='y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tStrc-name\tStrc-prob\n';
+  hdr_fmt='y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\tclus-strc-name\tclus-strc-prob\n';
   fprintf(fid, hdr_fmt, EXP.thresh.desc);
   fclose(fid);
 end
@@ -261,7 +261,6 @@ for cntrst=1:numel(EXP.titlestr)
       
       % and scatter plot!
       xXi = find(SPM.xCon(cntrst).c~=0);
-      %for xii = 1:numel(xXi)
       cfg=[]; cfg.Ic=cntrst; cfg.xXi=xXi;
       cfg.origoffset=1;
       if isfield(EXP,'mygraph')
@@ -286,7 +285,20 @@ for cntrst=1:numel(EXP.titlestr)
           cfg.atlas='fsl';
         end
       end
-      [Y,y,beta,Bcov,STRC, thres] = myspm_graph(xSPM,SPM,hReg, cfg);
+      [Y,y,beta,Bcov,STRC, thres, peakxyz] = myspm_graph(xSPM,SPM,hReg, cfg); % this only reads peak
+     %% now read cluster name & prob.
+      % read sigcluster
+      nii = load_nii([EXP.dir_name '/' fname_sigclus '.img']);
+      sigvol = round(nii.img);
+      % find mni-xyz (mm) coordinates
+      peakijk = xyz2ijk(peakxyz, nii);
+      clusidx = sigvol(peakijk(1), peakijk(2), peakijk(3));
+      xyzs = ijk2xyz(find3(sigvol==clusidx), nii);
+      if strcmp(cfg.atlas,'fsl')
+        cSTRC = myfsl_atlasquery(xyzs);
+      elseif strcmp(cfg.atlas,'spm12')
+        cSTRC = myspm_NMatlas(xyzs);
+      end
       if ~isempty(thres)
         EXP.CorrFDRthres = thres;
       end
@@ -298,28 +310,27 @@ for cntrst=1:numel(EXP.titlestr)
         end
       end
       
+      %%
       if isfield(EXP,'mygraph')
         % generate a summary table!
         fid = fopen(fname_tab, 'a');
         %CORPAL=[TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),3}];
         idx_x = find(SPM.xCon(cntrst).c);
         idx_x = idx_x(1);
-        % 'y-name  x-name  effect  stattype  peak%s\tpeakZ  uncor_pval \t cor_pval(%s) \tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tStrc-name\n'
+        % 'y-name  x-name  effect  stattype  peak%s\tpeakZ  uncor_pval \t cor_pval(%s) \tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-Strc-name\npeak-Strc-prob\clus-nStrc-name\nclus-Strc-prob\n'
         fprintf(fid,tab_fmt,...
           EXP.mygraph.y_name, EXP.mygraph.x_name, beta(idx_x), xSPM.STAT, ...
           TabDat.dat{PI(ci),9}, TabDat.dat{PI(ci),10},  ...
           TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),3}, ...
           TabDat.dat{PI(ci),5}, ...
           TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
-          STRC.strc.name, STRC.strc.prob/100);
+          STRC.strc.name, STRC.strc.prob, ...
+          cSTRC.name, cSTRC.prob);
         fclose(fid);
-      end
-      
+      end  
     end
     TotalNC=TotalNC+NC;
-    
   end
-  
 end
 
 %% copy 'significant' results to dir_sum

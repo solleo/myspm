@@ -25,7 +25,8 @@ for j=1:numel(idx) % for each cluster
   tmap1 = tmap.*(clustermap == idx(j));
   % find the name of the cluster
   if isfslprob
-    cst=myfsl_atlasquery(find3(tmap1),1);
+    [cst, cst_all] =myfsl_atlasquery(find3(tmap1),1);
+    clusname=[cst.name,' (',num2str(cst.prob),'%)'];
   else
     cst=myspm_NMatlas(find3(tmap1),1);
     clusname=[cst.name,' (',num2str(cst.prob),'%)'];

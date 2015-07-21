@@ -1,4 +1,4 @@
-function [Y,y,beta,Bcov,STRC,thres] = myspm_graph(xSPM,SPM,hReg, cfg)
+function [Y,y,beta,Bcov,STRC,thres,xyz] = myspm_graph(xSPM,SPM,hReg, cfg)
 % This is a highly mutated version of spm_graph to work with myspm_result.m
 %
 % (cc?)
@@ -20,6 +20,7 @@ function [Y,y,beta,Bcov,STRC,thres] = myspm_graph(xSPM,SPM,hReg, cfg)
 % y      - adjusted data for the selected voxel
 % beta   - parameter estimates (ML or MAP)
 % Bcov   - Covariance of parameter estimates (ML or conditional)
+% xyz    - peak coordinate in MNI-space (mm)
 %
 % See spm_getSPM for details.
 %__________________________________________________________________________

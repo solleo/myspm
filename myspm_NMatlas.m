@@ -75,17 +75,17 @@ if numel(label)==1
     strc.prob=100;
   end
 elseif numel(label)>1
+  % discard zeros from the labels
+  label(label==0)=[];
   idx = mode(label);
-  if ~isempty(idx)
-    strc.name = S.name{idx};
+  if ~isempty(idx) && ~isnan(idx)
+    strc.name = S.name{S.label == idx};
     strc.prob = round(mean(label==idx)*100);
   end
 end
 
-
 strc.mni_xyz = xyz';
 strc.ijk1 = ijk';
-
 
 end
 

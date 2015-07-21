@@ -77,7 +77,7 @@ for a=1:4 % for each atlas
     probs_b = probs(b);
   else % in case of cluster.. probs<NxV>
     % I want to compute mean prob for each label
-    probs_ri = round(mean(probs,2));
+    probs_ri = mean(probs,2);
     [~,b]=max(probs_ri);
     probs_b = probs_ri(b);
   end
