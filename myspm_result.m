@@ -286,7 +286,8 @@ for cntrst=1:numel(EXP.titlestr)
         end
       end
       [Y,y,beta,Bcov,STRC, thres, peakxyz] = myspm_graph(xSPM,SPM,hReg, cfg); % this only reads peak
-     %% now read cluster name & prob.
+      
+      %% now read cluster name & prob.
       % read sigcluster
       nii = load_nii([EXP.dir_name '/' fname_sigclus '.img']);
       sigvol = round(nii.img);
@@ -299,6 +300,11 @@ for cntrst=1:numel(EXP.titlestr)
       elseif strcmp(cfg.atlas,'spm12')
         cSTRC = myspm_NMatlas(xyzs);
       end
+      %% ---something wrong with the cluster name finding...
+      cSTRC.name='na';
+      cSTRC.prob=0;
+      %% ---something wrong with the cluster name finding...
+      
       if ~isempty(thres)
         EXP.CorrFDRthres = thres;
       end
@@ -327,7 +333,7 @@ for cntrst=1:numel(EXP.titlestr)
           STRC.strc.name, STRC.strc.prob, ...
           cSTRC.name, cSTRC.prob);
         fclose(fid);
-      end  
+      end
     end
     TotalNC=TotalNC+NC;
   end
