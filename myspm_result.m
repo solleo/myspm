@@ -359,3 +359,79 @@ if TotalNC && isfield(EXP,'dir_sum')
   system(['mv /tmp/sumtab.csv ',fname_sumtab]);
 end
 end
+
+%% SUB-FUNCTIONS
+
+function xyz = ijk2xyz(ijk, nii)
+% xyz = ijk2xyz(ijk, nii)
+% converts world-to-voxel coordinates.
+%
+% Inputs:
+%   ijk   [Nx3 vector] is 1-based voxel coordinates for MATLAB
+% Output:
+%   xyz   [Nx3 vector] is world-coordinates (e.g. MNI-coord)
+%   nii   the nii structure read using load_untouch_nii.m (or the filename)
+%
+% see xyz2ijk.m 
+% (cc) sgKIM, 2014. solleo@gmail.com
+
+
+if ischar(nii)
+  nii = load_untouch_nii(nii);
+end
+
+T=[nii.hdr.hist.srow_x; nii.hdr.hist.srow_y; nii.hdr.hist.srow_z; 0 0 0 1];
+
+if numel(ijk) == 3
+  if size(ijk,1) > size(ijk,2)
+    ijk=ijk';
+  end
+else
+  if size(ijk,1) < size(ijk,2)
+    ijk=ijk';
+  end
+end
+
+xyz = (T)*[(ijk-1) ones(size(ijk,1),1) ]';
+xyz(4,:)=[];
+xyz=xyz';
+
+end
+
+%  ijk = xyz2ijk(xyz, nii)
+% converts world-to-voxel coordinates.
+%
+% Inputs:
+%   xyz   [Nx3 vector] is world-coordinates (e.g. MNI-coord)
+%   nii   the nii structure read using load_untouch_nii.m (or the filename)
+% Output:
+%   ijk   [Nx3 vector] is 1-based voxel coordinates for MATLAB
+%
+% see ijk2xyz.m
+% (cc) sgKIM, 2014. solleo@gmail.com
+
+function ijk = xyz2ijk(xyz, nii)
+
+if ischar(nii)
+  hdr= load_untouch_header_only(nii);
+else
+  hdr = nii.hdr;
+end
+
+if numel(xyz) == 3
+  if size(xyz,1) > size(xyz,2)
+    xyz=xyz';
+  end
+else
+  if size(xyz,1) < size(xyz,2)
+    xyz=xyz';
+  end
+end
+
+T=[hdr.hist.srow_x; hdr.hist.srow_y; hdr.hist.srow_z; 0 0 0 1];
+ijk = inv(T) * [xyz ones(size(xyz,1),1)]';
+ijk(4,:)=[];
+ijk = ijk'+1;
+
+
+end
