@@ -13,13 +13,27 @@ function EXP=myspm_glm (EXP)
 % EXP.vi.val, EXP.vi.name (variable of interest)
 % EXP.masking = full path for an explicit mask or method of normalization
 % "Dartel_vbm8" "Dartel_vbm12"
+%
+% <for myspm_result.m>
 % EXP.thresh.desc = either 'FWE','none', or 'cluster' (initial alpha=0.001, k=0)
 % EXP.thresh.alpha = 0.05 (default)
 % EXP.thresh.extent (# fo voxels, optional)
+% EXP.thresh.clusterInitAlpha = 0.001 (default) for a cluster-threshold
+% EXP.thresh.clusterInitExtent = 10 (voxels; default)
 % EXP.titlestr <1 x #ofContrast>
-% EXP.fname_struct = '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz' (by default)
+% EXP.fname_struct = '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz' (default)
+% EXP.titlestr = {'positive','negative'} (default)
+% EXP.dir_sum = '' (a summary directory where you want to copy 'significant' results into)
+% EXP.append = 0 (default)
+% EXP.print  = 1 (default)
+% EXP.mygraph.y_name = 'x'
+% EXP.mygraph.x_name = 'y' for the scatterplots and summary tables
+% EXP.atlas = 'fsl' (default) or 'spm12'
 %
-% (cc) 2015. sgKIM. solleo@gmail.com https://ggooo.wordpress.com/
+% Results:
+%
+%
+% (cc) 2015. sgKIM.  solleo@gmail.com  https://ggooo.wordpress.com/
 
 spm('Defaults','fmri')
 

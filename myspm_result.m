@@ -19,8 +19,9 @@ function EXP = myspm_result(EXP)
 % EXP.print  = 1 (default)
 % EXP.mygraph.y_name = 'x'
 % EXP.mygraph.x_name = 'y' for the scatterplots and summary tables
+% EXP.atlas = 'fsl' (default) or 'spm12'
 %
-% (cc) 2015, sgKIM. solleo@gmail.com https://ggooo.wordpress.com/
+% (cc) 2015, sgKIM. solleo@gmail.com, https://ggooo.wordpress.com/
 
 %% Always print out the annotated tables
 if ~isfield(EXP,'mygraph')
@@ -38,16 +39,20 @@ if ~isfield(EXP,'print')
 end
 today=datestr(now,'yyyymmmdd');
 fname_tab=fullfile(EXP.dir_name,['spm_',today,'.csv']);
-fmt={   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',  '%s','%0.2f',  '%s','%0.2f'};
+%fname_tab=fullfile(EXP.dir_name,['spm_',today,'.xls']);
+%fmt={   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',  '%s','%0.2f',  '%s','%0.2f'};
+fmt={   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',  '%s','%0.2f'};
 tab_fmt= cell2fmt (fmt);
 
 if EXP.append==0 && EXP.print==1
   src=fullfile(EXP.dir_name,['spm_',today,'.ps']);
   system(['rm -f ',src]);
   fid=fopen(fname_tab,'w');
-  hdr_fmt='y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\tclus-strc-name\tclus-strc-prob\n';
+  %hdr_fmt='y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\tclus-strc-name\tclus-strc-prob\n';
+  hdr_fmt='y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\n';
   fprintf(fid, hdr_fmt, EXP.thresh.desc);
   fclose(fid);
+  %xlswrite(fname_tab, hdr_fmt, 1, 'A1');
 end
 
 %% Result Reports with any given threshold
@@ -286,23 +291,23 @@ for cntrst=1:numel(EXP.titlestr)
         end
       end
       [Y,y,beta,Bcov,STRC, thres, peakxyz] = myspm_graph(xSPM,SPM,hReg, cfg); % this only reads peak
-      
-      %% now read cluster name & prob.
-      % read sigcluster
-      nii = load_nii([EXP.dir_name '/' fname_sigclus '.img']);
-      sigvol = round(nii.img);
-      % find mni-xyz (mm) coordinates
-      peakijk = xyz2ijk(peakxyz, nii);
-      clusidx = sigvol(peakijk(1), peakijk(2), peakijk(3));
-      xyzs = ijk2xyz(find3(sigvol==clusidx), nii);
-      if strcmp(cfg.atlas,'fsl')
-        cSTRC = myfsl_atlasquery(xyzs);
-      elseif strcmp(cfg.atlas,'spm12')
-        cSTRC = myspm_NMatlas(xyzs);
-      end
       %% ---something wrong with the cluster name finding...
-      cSTRC.name='na';
-      cSTRC.prob=0;
+      %      %% now read cluster name & prob.
+      %       % read sigcluster
+      %       nii = load_nii([EXP.dir_name '/' fname_sigclus '.img']);
+      %       sigvol = round(nii.img);
+      %       % find mni-xyz (mm) coordinates
+      %       peakijk = xyz2ijk(peakxyz, nii);
+      %       clusidx = sigvol(peakijk(1), peakijk(2), peakijk(3));
+      %       xyzs = ijk2xyz(find3(sigvol==clusidx), nii);
+      %       if strcmp(cfg.atlas,'fsl')
+      %         cSTRC = myfsl_atlasquery(xyzs);
+      %       elseif strcmp(cfg.atlas,'spm12')
+      %         cSTRC = myspm_NMatlas(xyzs);
+      %       end
+      %       %% ---something wrong with the cluster name finding...
+      %       cSTRC.name='na';
+      %       cSTRC.prob=0;
       %% ---something wrong with the cluster name finding...
       
       if ~isempty(thres)
@@ -318,21 +323,27 @@ for cntrst=1:numel(EXP.titlestr)
       
       %%
       if isfield(EXP,'mygraph')
-        % generate a summary table!
-        fid = fopen(fname_tab, 'a');
-        %CORPAL=[TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),3}];
         idx_x = find(SPM.xCon(cntrst).c);
         idx_x = idx_x(1);
-        % 'y-name  x-name  effect  stattype  peak%s\tpeakZ  uncor_pval \t cor_pval(%s) \tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-Strc-name\npeak-Strc-prob\clus-nStrc-name\nclus-Strc-prob\n'
-        fprintf(fid,tab_fmt,...
-          EXP.mygraph.y_name, EXP.mygraph.x_name, beta(idx_x), xSPM.STAT, ...
-          TabDat.dat{PI(ci),9}, TabDat.dat{PI(ci),10},  ...
-          TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),3}, ...
-          TabDat.dat{PI(ci),5}, ...
-          TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
-          STRC.strc.name, STRC.strc.prob, ...
-          cSTRC.name, cSTRC.prob);
-        fclose(fid);
+                % generate a summary table!
+                fid = fopen(fname_tab, 'a');
+                % 'y-name  x-name  effect  stattype  peak%s\tpeakZ  uncor_pval \t cor_pval(%s) \tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-Strc-name\npeak-Strc-prob\clus-nStrc-name\nclus-Strc-prob\n'
+                fprintf(fid,tab_fmt,...
+                  EXP.mygraph.y_name, EXP.mygraph.x_name, beta(idx_x), xSPM.STAT, ...
+                  TabDat.dat{PI(ci),9}, TabDat.dat{PI(ci),10},  ...
+                  TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),3}, ...
+                  TabDat.dat{PI(ci),5}, ...
+                  TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
+                  STRC.strc.name, STRC.strc.prob); %, ...
+                  %cSTRC.name, cSTRC.prob);
+                fclose(fid);
+%         data2write={EXP.mygraph.y_name, EXP.mygraph.x_name, beta(idx_x), xSPM.STAT, ...
+%           TabDat.dat{PI(ci),9}, TabDat.dat{PI(ci),10},  ...
+%           TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),3}, ...
+%           TabDat.dat{PI(ci),5}, ...
+%           TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
+%           STRC.strc.name, STRC.strc.prob};
+%         xlswrite(fname_tab, data2write, 1, [char(TotalNC+ci+65),'1']);
       end
     end
     TotalNC=TotalNC+NC;
@@ -372,7 +383,7 @@ function xyz = ijk2xyz(ijk, nii)
 %   xyz   [Nx3 vector] is world-coordinates (e.g. MNI-coord)
 %   nii   the nii structure read using load_untouch_nii.m (or the filename)
 %
-% see xyz2ijk.m 
+% see xyz2ijk.m
 % (cc) sgKIM, 2014. solleo@gmail.com
 
 
@@ -398,6 +409,8 @@ xyz=xyz';
 
 end
 
+
+function ijk = xyz2ijk(xyz, nii)
 %  ijk = xyz2ijk(xyz, nii)
 % converts world-to-voxel coordinates.
 %
@@ -410,7 +423,6 @@ end
 % see ijk2xyz.m
 % (cc) sgKIM, 2014. solleo@gmail.com
 
-function ijk = xyz2ijk(xyz, nii)
 
 if ischar(nii)
   hdr= load_untouch_header_only(nii);
