@@ -1,18 +1,25 @@
 function EXP=myspm_glm (EXP)
 % EXP=myspm_glm (EXP)
 %
-% examples of the fields of EXP:
-% EXP.dir_name=['/scr/vatikan3/Roberta/TPIAMO/dparsf/GLMs/meanFD_s8_',ROI_NAMES{i},'_',BHV_NAMES{j}];
+% This script helps you to run GLMs, and forward the ouput
+%   to myspm_result.m and myspm_graph.m to create cluster visualization,
+%   and plots using SPM
 %
-% EXP.files_query=['/scr/vatikan3/Roberta/TPIAMO/dparsf/Results/FC_Roberta/s8zROI',num2str(i),'FCMap_*.nii'];
-% or EXP.filenames=<1xN> cell
-%
-% EXP.fwhm = a scalr for isotropic smoothing or a vector for aisotropic smoothing
-% EXP.design = either 'mreg' 't1'
-% EXP.vn(c).val, EXP.vn(c).name (variable of nuissance)
-% EXP.vi.val, EXP.vi.name (variable of interest)
-% EXP.masking = full path for an explicit mask or method of normalization
-% "Dartel_vbm8" "Dartel_vbm12"
+% Inputs:
+% <for myspm_glm.m>
+% EXP.dir_name <string> directory to save SPM results
+% EXP.files_query <string> for query to find image filenames,
+%   or just N filenames in <1xN> cell
+% EXP.fwhm <1x1> a scalr for isotropic smoothing
+%   or <1x3> a vector for anisotropic smoothing
+% EXP.design <string> design type either multiple regression ('mreg')
+%   or one-sample t-test ('t1') or paired t-test ('pt')
+% EXP.vn(c).val <Nx1> a vector of c-th nuissance variable
+% EXP.vn(c).name <string> a name of c-th nuissance variable
+% EXP.vi.val <Nx1> a vector of interest
+% EXP.vi.name <string> a name of interest
+% EXP.masking <string> filename for an explicit mask
+%   or method of normalization as "Dartel_vbm8" or "Dartel_vbm12"
 %
 % <for myspm_result.m>
 % EXP.thresh.desc = either 'FWE','none', or 'cluster' (initial alpha=0.001, k=0)
@@ -30,10 +37,18 @@ function EXP=myspm_glm (EXP)
 % EXP.mygraph.x_name = 'y' for the scatterplots and summary tables
 % EXP.atlas = 'fsl' (default) or 'spm12'
 %
+% Example:
+%
 % Results:
 %
 %
 % (cc) 2015. sgKIM.  solleo@gmail.com  https://ggooo.wordpress.com/
+
+if ~isfield(EXP,'design')
+  design='mreg';
+else
+  design = EXP.design;
+end
 
 spm('Defaults','fmri')
 
@@ -55,6 +70,22 @@ else
   error('You need to specify inputs in EXP.files_queryend or EXP.filenames');
 end
 
+if strcmpi(design,'pt')
+  if isfield(EXP,'files_query2')
+    files = dir(EXP.files_query2);
+    [mypath,~,~] = fileparts(EXP.files_query2);
+    for n=1:numel(files)
+      fnames{n,2} = [mypath,'/',files(n).name,',1'];
+    end
+  elseif isfield(EXP,'filenames2')
+    for n=1:numel(EXP.filenames2)
+      fnames{n,2} = [EXP.filenames{n},',1'];
+    end
+  else
+    error('You need to specify inputs in EXP.files_queryend or EXP.filenames');
+  end
+end
+
 if isfield(EXP,'fwhm')
   matlabbatchs={};
   if numel(EXP.fwhm) == 1
@@ -68,28 +99,23 @@ if isfield(EXP,'fwhm')
   matlabbatchs{1}.spm.spatial.smooth.im = 0;
   prefix=['s' num2str(round(mean(fwhm))) '_'];
   matlabbatchs{1}.spm.spatial.smooth.prefix = prefix;
-  for n=1:numel(fnames)
-    [a,b,c]=fileparts(fnames{n,1});
-    fnames{n,1} = [a '/' prefix b c];
+  for j=1:size(fnames,2)
+    for n=1:size(fnames,1)
+      [a,b,c]=fileparts(fnames{n,j});
+      fnames{n,j} = [a '/' prefix b c];
+    end
   end
   if ~exist(fnames{end,1}(1:end-2),'file')
     spm_jobman('initcfg')
     spm_jobman('run', matlabbatchs)
   end
-  
 end
 
-
-if ~isfield(EXP,'design')
-  design='mreg';
-else
-  design = EXP.design;
-end
 
 %% design specification
 
 switch design
-  case 'mreg'
+  case 'mreg' % multiple regression
     matlabbatch{1}.spm.stats.factorial_design.des.mreg.scans = fnames;
     if isfield(EXP,'vi') % variable of interest
       for c=1:numel(EXP.vi)
@@ -101,14 +127,23 @@ switch design
       matlabbatch{1}.spm.stats.factorial_design.des.mreg.mcov ...
         = struct('c', {}, 'cname', {}, 'iCC', {});
     end
-    
     % including intercept
     matlabbatch{1}.spm.stats.factorial_design.des.mreg.incint = 1;
     if isfield(EXP,'nointercept')
       matlabbatch{1}.spm.stats.factorial_design.des.mreg.incint = 0;
     end
-  case 't1'
+    
+  case 't1' % one-sample t-test
     matlabbatch{1}.spm.stats.factorial_design.des.t1.scans = fnames;
+    EXP.vi.name='1';
+    
+  case 'pt' % paired t-test
+    for n=1:size(fnames,1)
+      matlabbatch{1}.spm.stats.factorial_design.des.pt.pair(n).scans ...
+      = {fnames{n,1};fnames{n,2}};
+    end
+    matlabbatch{1}.spm.stats.factorial_design.des.pt.gmsca = 0;
+    matlabbatch{1}.spm.stats.factorial_design.des.pt.ancova = 0;
     EXP.vi.name='1';
 end
 
@@ -120,6 +155,7 @@ if isfield(EXP,'vn'); %isempty(EXP.vi.val) % of variable of nuissance
 else
   matlabbatch{1}.spm.stats.factorial_design.cov = struct('c', {}, 'cname', {}, 'iCFI', {}, 'iCC', {});
 end
+
 matlabbatch{1}.spm.stats.factorial_design.masking.tm.tm_none = 1;
 matlabbatch{1}.spm.stats.factorial_design.masking.im = 1;
 if ~isfield(EXP,'masking')
@@ -127,6 +163,7 @@ if ~isfield(EXP,'masking')
 else
   matlabbatch{1}.spm.stats.factorial_design.masking.em = {EXP.masking};
 end
+
 matlabbatch{1}.spm.stats.factorial_design.globalc.g_omit = 1;
 matlabbatch{1}.spm.stats.factorial_design.globalm.gmsca.gmsca_no = 1;
 matlabbatch{1}.spm.stats.factorial_design.globalm.glonorm = 1;
@@ -177,13 +214,17 @@ else
   X_int=0;
 end
 
+% contrast setting
 switch design
   case 'mreg'
     matlabbatch{3}.spm.stats.con.consess{1}.tcon.convec = [X_int +1 X_cov];
     matlabbatch{3}.spm.stats.con.consess{2}.tcon.convec = [X_int -1 X_cov];
   case 't1'
-    matlabbatch{3}.spm.stats.con.consess{1}.tcon.convec = +1;
-    matlabbatch{3}.spm.stats.con.consess{2}.tcon.convec = -1;
+    matlabbatch{3}.spm.stats.con.consess{1}.tcon.convec = [+1 X_cov];
+    matlabbatch{3}.spm.stats.con.consess{2}.tcon.convec = [-1 X_cov];
+  case 'pt'
+    matlabbatch{3}.spm.stats.con.consess{1}.tcon.convec = [1 -1 X_cov zeros(1,size(fnames,1))];
+    matlabbatch{3}.spm.stats.con.consess{2}.tcon.convec = [-1 1 X_cov zeros(1,size(fnames,1))];
 end
 
 

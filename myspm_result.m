@@ -253,14 +253,20 @@ for cntrst=1:numel(EXP.titlestr)
       spm_orthviews('redraw');
       if sum(SPM.xCon(cntrst).c)<0
         colormap(bluecmap);
-      else
+      elseif sum(SPM.xCon(cntrst).c)>0
         colormap(redcmap);
+      else
+        if SPM.xCon(cntrst).c(1)>0
+          colormap(redcmap);
+        else
+          colormap(bluecmap);
+        end
       end
       if EXP.print
         if isfield(EXP,'fname_spm_fig')
           spm_print(EXP.fname_spm_fig);
         else
-          spm_print
+          spm_print;
         end
       end
       
