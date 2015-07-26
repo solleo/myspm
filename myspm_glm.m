@@ -6,36 +6,39 @@ function EXP=myspm_glm (EXP)
 %   and plots using SPM
 %
 % Inputs:
-% <for myspm_glm.m>
-% EXP.dir_name <string> directory to save SPM results
-% EXP.files_query <string> for query to find image filenames,
-%   or just N filenames in <1xN> cell
-% EXP.fwhm <1x1> a scalr for isotropic smoothing
-%   or <1x3> a vector for anisotropic smoothing
-% EXP.design <string> design type either multiple regression ('mreg')
-%   or one-sample t-test ('t1') or paired t-test ('pt')
-% EXP.vn(c).val <Nx1> a vector of c-th nuissance variable
-% EXP.vn(c).name <string> a name of c-th nuissance variable
-% EXP.vi.val <Nx1> a vector of interest
-% EXP.vi.name <string> a name of interest
-% EXP.masking <string> filename for an explicit mask
-%   or method of normalization as "Dartel_vbm8" or "Dartel_vbm12"
+% required fields for myspm_glm.m:
+%   EXP.dir_name     <string> directory to save SPM results
+%   EXP.files_query  <string> for query to find image filenames,
+%                           or just NumSubj filenames in a <1xNumSubj> cell
+%   EXP.design       <string> type of GLM design: either multiple regression ('mreg'),
+%                           or one-sample t-test ('t1') or paired t-test ('pt')
 %
-% <for myspm_result.m>
-% EXP.thresh.desc = either 'FWE','none', or 'cluster' (initial alpha=0.001, k=0)
-% EXP.thresh.alpha = 0.05 (default)
-% EXP.thresh.extent (# fo voxels, optional)
-% EXP.thresh.clusterInitAlpha = 0.001 (default) for a cluster-threshold
-% EXP.thresh.clusterInitExtent = 10 (voxels; default)
-% EXP.titlestr <1 x #ofContrast>
-% EXP.fname_struct = '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz' (default)
-% EXP.titlestr = {'positive','negative'} (default)
-% EXP.dir_sum = '' (a summary directory where you want to copy 'significant' results into)
-% EXP.append = 0 (default)
-% EXP.print  = 1 (default)
-% EXP.mygraph.y_name = 'x'
-% EXP.mygraph.x_name = 'y' for the scatterplots and summary tables
-% EXP.atlas = 'fsl' (default) or 'spm12'
+% required fields for myspm_glm.m when EXP.design='mreg'
+%   EXP.vi.val       <NumSubjx1:num> a vector of interest
+%   EXP.vi.name      <string> a name of interest
+%
+% optional fields for myspm_glm.m:
+%   EXP.fwhm         <1x1:num> a scalr for of an isotropic smoothing
+%               or <1x3:num> a vector for anisotropic smoothing
+%   EXP.vn(c).val    <NumSubjx1:num> a vector of c-th nuissance variable
+%   EXP.vn(c).name   <string> a name of c-th nuissance variable
+%   EXP.masking      <string> filename for an explicit (inclusive) mask
+%
+% optional fields for myspm_result.m:
+%   EXP.thresh.desc    <string>  'FWE','none', or 'cluster'(default)
+%   EXP.thresh.alpha   <1x1:num> alpha level (default= 0.05)
+%   EXP.thresh.extent  <1x1:num> a number of voxels for extent threshold 
+%   EXP.thresh.clusterInitAlpha   <1x1 num> 0.001 (default) for a cluster-threshold
+%   EXP.thresh.clusterInitExtent  <1x1 num> 10 (voxels; default)
+%   EXP.fname_struct   <string>  '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz' (default)
+%   EXP.titlestr       <1xNumCont:cell> {'positive','negative'} (default)
+%   EXP.dir_sum        <string>  '' (a summary directory where you want to copy 'significant' results into)
+%   EXP.append         <1x1 num> = 0 (default)
+%   EXP.print          <1x1 num> = 1 (default)
+%   EXP.mygraph.x_name <string>  'x'
+%   EXP.mygraph.y_name <string>  'y' for the scatterplots and summary tables
+%   EXP.atlas          <string>  'fsl' (default) or 'spm12'
+%   EXP.fname_spm_fig  <string>  
 %
 % Example:
 %

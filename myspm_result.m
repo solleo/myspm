@@ -20,7 +20,7 @@ function EXP = myspm_result(EXP)
 % EXP.mygraph.y_name = 'x'
 % EXP.mygraph.x_name = 'y' for the scatterplots and summary tables
 % EXP.atlas = 'fsl' (default) or 'spm12'
-%
+% EXP.fname_spm_fig <string>
 % (cc) 2015, sgKIM. solleo@gmail.com, https://ggooo.wordpress.com/
 
 %% Always print out the annotated tables
@@ -38,9 +38,7 @@ if ~isfield(EXP,'print')
   EXP.print = 1;
 end
 today=datestr(now,'yyyymmmdd');
-fname_tab=fullfile(EXP.dir_name,['spm_',today,'.csv']);
-%fname_tab=fullfile(EXP.dir_name,['spm_',today,'.xls']);
-%fmt={   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',  '%s','%0.2f',  '%s','%0.2f'};
+fname_tab = fullfile(EXP.dir_name,['spm_',today,'.csv']);
 fmt={   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',  '%s','%0.2f'};
 tab_fmt= cell2fmt (fmt);
 
@@ -52,7 +50,11 @@ if EXP.append==0 && EXP.print==1
   hdr_fmt='y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\n';
   fprintf(fid, hdr_fmt, EXP.thresh.desc);
   fclose(fid);
-  %xlswrite(fname_tab, hdr_fmt, 1, 'A1');
+end
+
+%%
+if ~isfield(EXP,'fname_spm_fig')
+  EXP.fname_spm_fig = fullfile(EXP.dir_name,['sigclus_spm_',today,'.ps']);
 end
 
 %% Result Reports with any given threshold
@@ -263,11 +265,7 @@ for cntrst=1:numel(EXP.titlestr)
         end
       end
       if EXP.print
-        if isfield(EXP,'fname_spm_fig')
-          spm_print(EXP.fname_spm_fig);
-        else
-          spm_print;
-        end
+        spm_print(EXP.fname_spm_fig);
       end
       
       % and scatter plot!
@@ -320,36 +318,32 @@ for cntrst=1:numel(EXP.titlestr)
         EXP.CorrFDRthres = thres;
       end
       if EXP.print
-        if isfield(EXP,'fname_spm_fig')
-          spm_print(EXP.fname_spm_fig);
-        else
-          spm_print
-        end
+        spm_print(EXP.fname_spm_fig);
       end
       
       %%
       if isfield(EXP,'mygraph')
         idx_x = find(SPM.xCon(cntrst).c);
         idx_x = idx_x(1);
-                % generate a summary table!
-                fid = fopen(fname_tab, 'a');
-                % 'y-name  x-name  effect  stattype  peak%s\tpeakZ  uncor_pval \t cor_pval(%s) \tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-Strc-name\npeak-Strc-prob\clus-nStrc-name\nclus-Strc-prob\n'
-                fprintf(fid,tab_fmt,...
-                  EXP.mygraph.y_name, EXP.mygraph.x_name, beta(idx_x), xSPM.STAT, ...
-                  TabDat.dat{PI(ci),9}, TabDat.dat{PI(ci),10},  ...
-                  TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),3}, ...
-                  TabDat.dat{PI(ci),5}, ...
-                  TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
-                  STRC.strc.name, STRC.strc.prob); %, ...
-                  %cSTRC.name, cSTRC.prob);
-                fclose(fid);
-%         data2write={EXP.mygraph.y_name, EXP.mygraph.x_name, beta(idx_x), xSPM.STAT, ...
-%           TabDat.dat{PI(ci),9}, TabDat.dat{PI(ci),10},  ...
-%           TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),3}, ...
-%           TabDat.dat{PI(ci),5}, ...
-%           TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
-%           STRC.strc.name, STRC.strc.prob};
-%         xlswrite(fname_tab, data2write, 1, [char(TotalNC+ci+65),'1']);
+        % generate a summary table!
+        fid = fopen(fname_tab, 'a');
+        % 'y-name  x-name  effect  stattype  peak%s\tpeakZ  uncor_pval \t cor_pval(%s) \tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-Strc-name\npeak-Strc-prob\clus-nStrc-name\nclus-Strc-prob\n'
+        fprintf(fid,tab_fmt,...
+          EXP.mygraph.y_name, EXP.mygraph.x_name, beta(idx_x), xSPM.STAT, ...
+          TabDat.dat{PI(ci),9}, TabDat.dat{PI(ci),10},  ...
+          TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),3}, ...
+          TabDat.dat{PI(ci),5}, ...
+          TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
+          STRC.strc.name, STRC.strc.prob); %, ...
+        %cSTRC.name, cSTRC.prob);
+        fclose(fid);
+        %         data2write={EXP.mygraph.y_name, EXP.mygraph.x_name, beta(idx_x), xSPM.STAT, ...
+        %           TabDat.dat{PI(ci),9}, TabDat.dat{PI(ci),10},  ...
+        %           TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),3}, ...
+        %           TabDat.dat{PI(ci),5}, ...
+        %           TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
+        %           STRC.strc.name, STRC.strc.prob};
+        %         xlswrite(fname_tab, data2write, 1, [char(TotalNC+ci+65),'1']);
       end
     end
     TotalNC=TotalNC+NC;
@@ -451,5 +445,20 @@ ijk = inv(T) * [xyz ones(size(xyz,1),1)]';
 ijk(4,:)=[];
 ijk = ijk'+1;
 
+end
 
+function fmtstr = cell2fmt (fmtcell, delimiter)
+% fmtstr = cell2fmt (fmtcell, delimiter)
+%
+% (cc) sgKIM
+fmtstr='';
+if ~exist('delimiter','var')
+  delimiter='\t';
+end
+
+for i=1:numel(fmtcell)
+  fmtstr=[fmtstr delimiter fmtcell{i}];
+end
+fmtstr(1:2)='';
+fmtstr=[fmtstr '\n'];
 end
