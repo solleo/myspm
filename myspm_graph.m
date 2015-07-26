@@ -1,12 +1,14 @@
-function [Y,y,beta,Bcov,STRC,thres,xyz] = myspm_graph(xSPM,SPM,hReg, cfg)
+function [Y,y,beta,Bcov ,STRC,thres,xyz] = myspm_graph(xSPM,SPM,hReg, cfg)
 % This is a highly mutated version of spm_graph to work with myspm_result.m
+%
+% [Y y beta Bcov,strc,thres,xyz] = myspm_graph(xSPM,SPM,hReg, cfg)
 %
 % (cc?)
 
 %
 % Graphical display of adjusted data
 %
-% FORMAT [Y y beta Bcov,strc] = myspm_graph(xSPM,SPM,hReg, cfg)
+% FORMAT [Y y beta Bcov,strc,thres,xyz] = myspm_graph(xSPM,SPM,hReg, cfg)
 %
 % xSPM   - structure containing SPM, distributional & filtering details
 %          about the excursion set

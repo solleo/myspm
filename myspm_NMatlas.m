@@ -18,7 +18,7 @@ if ~exist('isijk','var')
   isijk=0;
 end
 
-%% read .XML files
+%% read .XML files (from spm12 directory? or somewhere else?)
 [spmpath,~,~] = fileparts(which('spm'));
 srcpath=[spmpath,'/tpm/'];
 xmlFNAME=fullfile(srcpath,'/labels_Neuromorphometrics.xml');

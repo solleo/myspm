@@ -286,11 +286,11 @@ for cntrst=1:numel(EXP.titlestr)
           cfg.markCorrThres.CorrFDRThres=EXP.CorrFDRthres;
         end
       end
-      cfg.atlas='spm12';
+      cfg.atlas='fsl';
       if isfield(EXP,'atlas')
-        if strfind(EXP.atlas,'spm')
+        if strfind(lower(EXP.atlas),'spm')
           cfg.atlas='spm12';
-        elseif strfind(EXP.atlas,'fsl')
+        elseif strfind(lower(EXP.atlas),'fsl')
           cfg.atlas='fsl';
         end
       end
