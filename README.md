@@ -4,7 +4,7 @@
 
 <p>But plotting orthogonal sections of a structural image, with pretty suprathreshold blobs, overlaid is not available from the MATLAB batch editor. When you have many models and contrast to test, exploring all different models and contrasts require A TONS of mouse clicking, which might cause carpal tunnel syndrome.</p>
 
-<p>In order to prevent carpal tunnels of neuroimaging researchers with a lot of models (or just for lazy guys like me), it is possible to create a script that generates orthogonal sections at each local maximum using ‘xSPM’, ‘hReg’, and ‘TabDat’ variables (which are generated when Results Report is run), and ‘spm_sections.m’ and ‘spm_orthviews.m’ functions.</p>
+<p>In order to prevent carpal tunnels for neuroimaging researchers with a lot of models to test (or just for lazy guys like me), it is possible to create a script that generates orthogonal sections at each local maximum using ‘xSPM’, ‘hReg’, and ‘TabDat’ variables (which are generated when Results Report is run), and ‘spm_sections.m’ and ‘spm_orthviews.m’ functions.</p>
 
 <ul>
 <li><code>myspm_glm.m</code> performs statistical inference using SPM's GLM modules.</li>
