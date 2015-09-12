@@ -21,6 +21,7 @@ function EXP = myspm_result(EXP)
 % EXP.mygraph.x_name = 'y' for the scatterplots and summary tables
 % EXP.atlas = 'fsl' (default) or 'spm12'
 % EXP.fname_spm_fig <string>
+%
 % (cc) 2015, sgKIM. solleo@gmail.com, https://ggooo.wordpress.com/
 
 %% Always print out the annotated tables
@@ -30,31 +31,35 @@ if ~isfield(EXP,'mygraph')
 end
 
 %% EXP.append?
-
 if ~isfield(EXP,'append')
   EXP.append = 0;
 end
 if ~isfield(EXP,'print')
   EXP.print = 1;
 end
-today=datestr(now,'yyyymmmdd');
-fname_tab = fullfile(EXP.dir_name,['spm_',today,'.csv']);
-fmt={   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',  '%s','%0.2f'};
-tab_fmt= cell2fmt (fmt);
-
+today = datestr(now,'yyyymmmdd');
+fname_tab = fullfile(EXP.dir_glm,['spm_',today,'.csv']);
+fmt = {   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',  '%s','%0.2f'};
+tab_fmt = cell2fmt (fmt);
 if EXP.append==0 && EXP.print==1
-  src=fullfile(EXP.dir_name,['spm_',today,'.ps']);
-  system(['rm -f ',src]);
-  fid=fopen(fname_tab,'w');
-  %hdr_fmt='y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\tclus-strc-name\tclus-strc-prob\n';
-  hdr_fmt='y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\n';
+  fid = fopen(fname_tab,'w');
+  hdr_fmt = 'y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\n';
   fprintf(fid, hdr_fmt, EXP.thresh.desc);
   fclose(fid);
 end
-
+if ~isfield(EXP,'fname_prefix')
+  prefix='';
+else
+  prefix = EXP.fname_prefix;
+end
 %%
 if ~isfield(EXP,'fname_spm_fig')
-  EXP.fname_spm_fig = fullfile(EXP.dir_name,['sigclus_spm_',today,'.ps']);
+  EXP.fname_spm_fig = fullfile(EXP.dir_glm,[prefix,'sigclus_spm_',today,'.ps']);
+  EXP.fname_spm_fig = strrep(EXP.fname_spm_fig,'>','-gt-');
+  EXP.fname_spm_fig = strrep(EXP.fname_spm_fig,'<','-lt-');
+end
+if EXP.print && exist(EXP.fname_spm_fig,'file')
+  delete(EXP.fname_spm_fig);
 end
 
 %% Result Reports with any given threshold
@@ -70,19 +75,15 @@ elseif strcmpi('none',EXP.thresh.desc)
 else
   error('EXP.thresh.desc should be either ''cluster'', ''FWE'', ''none''');
 end
-
 if ~isfield(EXP.thresh,'alpha')
   EXP.thresh.alpha=0.05;
 end
-
 if ~isfield(EXP.thresh,'extent')
   EXP.thresh.extent=0;
 end
-
 if ~isfield(EXP.thresh,'override')
   EXP.thresh.override=0;
 end
-
 if ~isfield(EXP.thresh,'clusterInitAlpha')
   EXP.thresh.clusterInitAlpha = 0.001;
 end
@@ -90,9 +91,19 @@ if ~isfield(EXP.thresh,'clusterInitExtent')
   EXP.thresh.clusterInitExtent = 10;
 end
 
-%[TODO]: make it adaptable for other contrasts!
+load([EXP.dir_glm,'/SPM.mat']);
+NumSess = size(SPM.xY.VY,2);
+NumCond = size(SPM.xX.X,2)/NumSess-7;
+NumCntrst = EXP.NumCntrst;
+
 if ~isfield(EXP,'titlestr')
-  EXP.titlestr={'positive','negative'};
+  if NumCntrst == 2
+    EXP.titlestr={'positive','negative'};
+  else
+    for i=1:NumCntrst
+      EXP.titlestr{i}=['Contrast#',num2str(i)];
+    end
+  end
 end
 
 if ~isfield(EXP,'fname_struct')
@@ -114,7 +125,7 @@ EXP.minp=zeros(1,numel(EXP.titlestr));
 TotalNC=0;
 for cntrst=1:numel(EXP.titlestr)
   matlabbatch={};
-  matlabbatch{1}.spm.stats.results.spmmat = {[EXP.dir_name,'/SPM.mat']};
+  matlabbatch{1}.spm.stats.results.spmmat = {[EXP.dir_glm,'/SPM.mat']};
   matlabbatch{1}.spm.stats.results.conspec(1).contrasts = cntrst;
   if method == 3
     matlabbatch{1}.spm.stats.results.conspec(1).threshdesc = 'none';
@@ -125,6 +136,7 @@ for cntrst=1:numel(EXP.titlestr)
     matlabbatch{1}.spm.stats.results.conspec(1).thresh = EXP.thresh.alpha;
     matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thresh.extent;
   end
+  % let's just use GM mask (instead of compcor..?)
   matlabbatch{1}.spm.stats.results.conspec(1).mask = struct('contrasts', {}, 'thresh', {}, 'mtype', {});
   matlabbatch{1}.spm.stats.results.conspec(1).titlestr = EXP.titlestr{cntrst};
   matlabbatch{1}.spm.stats.results.units = 1;
@@ -150,9 +162,15 @@ for cntrst=1:numel(EXP.titlestr)
       matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thresh.clusextent(cntrst) -1;
     end
   end
+  
   % result table printing
   matlabbatch{1}.spm.stats.results.print = ~~EXP.print;
-  spm_jobman('run', matlabbatch)
+  spm_jobman('initcfg');
+  spm_jobman('run', matlabbatch);
+  
+  if isfield(EXP,'MIP_only') 
+    continue
+  end
   
   %% Get all variables results report
   xSPM= evalin('base','xSPM;');
@@ -164,8 +182,8 @@ for cntrst=1:numel(EXP.titlestr)
   % now read the goddamn table! :D
   
   % first just export the table (for each contrast)
-  save([EXP.dir_name,'/TabDat',num2str(cntrst),'.mat'], 'TabDat');  % for matlab
-  fid = fopen([EXP.dir_name,'/TabDat',num2str(cntrst),'.csv'],'w'); % for other applications
+  save([EXP.dir_glm,'/TabDat',num2str(cntrst),'.mat'], 'TabDat');  % for matlab
+  fid = fopen([EXP.dir_glm,'/TabDat',num2str(cntrst),'.csv'],'w'); % for other applications
   fprintf(fid, cell2fmt(TabDat.hdr(1,:)));
   fprintf(fid, cell2fmt(TabDat.hdr(2,:)));
   fprintf(fid, strrep(strrep(strrep(cell2fmt(TabDat.hdr(3,:)),'\it',''),'\rm_',''),'\equiv',''));
@@ -195,20 +213,14 @@ for cntrst=1:numel(EXP.titlestr)
     end
   end
   fclose(fid);
-  
-  [~,b]=find( ~isinf(zmax),1,'first');
+  [~,b]=find( ~isinf(tmax),1,'first');
   cmax=tmax(b);
-  if ~isfield(EXP,'cmax')
-    EXP.cmax = cmax;
-  end
+  EXP.cmax = cmax;
   
   % now return min P for each contrast
   EXP.minp(cntrst)=min([pvals,1]);
   
   NC=numel(COORDS);
-  if (NC > 50) && ~EXP.thresh.override
-    error('Seriously, do you want 50+ figures for 50+ blobs? But if you really want that, set EXP.thresh.override=1');
-  end
   
   %% Now save "significant" cluster maps (from spm code somewhere...)
   if NC
@@ -219,108 +231,107 @@ for cntrst=1:numel(EXP.titlestr)
     n       = size(ni);
     n(ni)   = 1:num;
     Z       = n(Z);
-    if numel(EXP.titlestr) > 2
-      error('Now code for 2+ contrasts!');
+    if numel(EXP.titlestr) <= 2
+      Sign='+-';
+      try fname_sigclus=[prefix,'sigclus_',Sign(cntrst),EXP.vi.name];
+      catch ME
+        fname_sigclus=[prefix,'sigclus_',Sign(cntrst),'1'];
+      end
+    else
+      fname_sigclus=[prefix,'sigclus_',EXP.titlestr{cntrst}];
     end
-    Sign='+-';
-    try fname_sigclus=['sigclus_',Sign(cntrst),EXP.vi.name];
-    catch ME
-      fname_sigclus=['sigclus_',Sign(cntrst),'1'];
-    end
+    fname_sigclus=strrep(fname_sigclus,'>','-gt-');
+    fname_sigclus=strrep(fname_sigclus,'<','-lt-');
     spm_write_filtered(Z, XYZ, xSPM.DIM, xSPM.M,...
       sprintf('SPM{%c}-filtered: u = %5.3f, k = %d',xSPM.STAT,xSPM.u,xSPM.k), ...
-      fname_sigclus);
+      [fname_sigclus,'.nii']);
   end
-  
   
   %% create orthogonal sections and reposition onto peaks
   redcmap=[ gray(64);
-    [linspace(0.5667,1,14)', linspace(0,0,14)', linspace(0,0,14)'];        %  1~14 [14]
-    [linspace(1,1,30)', linspace(0.03333,1,30)', linspace(0,0,30)'];  % 15~44 [30]
-    [linspace(1,1,20)', linspace(1,1,20)', linspace(0.05,1,20)']           % 45~64 [
+    [linspace(0.5667,1,14)', linspace(0,0,14)', linspace(0,0,14)'];        %  1~14 [14] dark red
+    [linspace(1,1,30)', linspace(0.03333,1,30)', linspace(0,0,30)'];  % 15~44 [30] red to yellow
+    [linspace(1,1,20)', linspace(1,1,20)', linspace(0.05,1,20)']           % 45~64 yellow
     ];
   
   bluecmap=[ gray(64);
-    [linspace(0,0,14)', linspace(0,0,14)', linspace(0.5667,1,14)'];        %  1~14 [14]
-    [linspace(0,0,30)', linspace(0.03333,1,30)', linspace(1,1,30)'];  % 15~44 [30]
-    [linspace(0.05,1,20)', linspace(1,1,20)', linspace(1,1,20)']           % 45~64 [
+    [linspace(0,0,14)', linspace(0,0,14)', linspace(0.5667,1,14)'];        %  1~14 [14] dark blue
+    [linspace(0,0,30)', linspace(0.03333,1,30)', linspace(1,1,30)'];  % 15~44 [30] blue to cyan
+    [linspace(0.05,1,20)', linspace(1,1,20)', linspace(1,1,20)']           % 45~64 cyan
     ];
-  
-  if NC
+  if ~isfield(EXP,'showlessNC')
+    showlessNC = 30;
+  else
+    showlessNC = EXP.showlessNC;
+  end
+  if NC>showlessNC
+    warning(['Too many clusters, only ',num2str(showlessNC),' clusters are visualized']);
+    NC=showlessNC;
+  end
+  if NC  % number of clusters
     for ci=1:NC
       spm_sections(xSPM,hReg,EXP.fname_struct);
       spm_orthviews('reposition',COORDS{ci});
       global st
       st.vols{1}.blobs{1}.max=EXP.cmax;
       spm_orthviews('redraw');
-      if sum(SPM.xCon(cntrst).c)<0
-        colormap(bluecmap);
-      elseif sum(SPM.xCon(cntrst).c)>0
+%       if sum(SPM.xCon(cntrst).c)<0
+%         colormap(bluecmap);
+%       elseif sum(SPM.xCon(cntrst).c)>0
+%         colormap(redcmap);
+%       else
+%         if SPM.xCon(cntrst).c(1)>0
+%           colormap(redcmap);
+%         else
+%           colormap(bluecmap);
+%         end
+%       end
+      % odd/even index of contrast
+      if mod(cntrst,2)
         colormap(redcmap);
       else
-        if SPM.xCon(cntrst).c(1)>0
-          colormap(redcmap);
-        else
-          colormap(bluecmap);
-        end
+        colormap(bluecmap);
       end
       if EXP.print
         spm_print(EXP.fname_spm_fig);
       end
       
       % and scatter plot!
-      xXi = find(SPM.xCon(cntrst).c~=0);
-      cfg=[]; cfg.Ic=cntrst; cfg.xXi=xXi;
-      cfg.origoffset=1;
-      if isfield(EXP,'mygraph')
-        if isfield(EXP.mygraph,'x_name')
-          cfg.x_name = EXP.mygraph.x_name;
+      if ~strcmpi(xSPM.STAT,'F')
+        xXi = find(SPM.xCon(cntrst).c~=0);
+        cfg=[]; cfg.Ic=cntrst; cfg.xXi=xXi; cfg.contrast = SPM.xCon(cntrst).c;
+        cfg.origoffset=1;
+        if isfield(EXP,'mygraph')
+          if isfield(EXP.mygraph,'x_name')
+            cfg.x_name = EXP.mygraph.x_name;
+          end
+          if isfield(EXP.mygraph,'y_name')
+            cfg.y_name = EXP.mygraph.y_name;
+          end
         end
-        if isfield(EXP.mygraph,'y_name')
-          cfg.y_name = EXP.mygraph.y_name;
+        if isfield(EXP,'markCorrThres')
+          cfg.markCorrThres=EXP.markCorrThres;
+          if isfield(EXP,'CorrFDRthres')
+            cfg.markCorrThres.CorrFDRThres=EXP.CorrFDRthres;
+          end
+        end
+        cfg.atlas='fsl';
+        if isfield(EXP,'atlas')
+          if strfind(lower(EXP.atlas),'spm')
+            cfg.atlas='spm12';
+          elseif strfind(lower(EXP.atlas),'fsl')
+            cfg.atlas='fsl';
+          end
+        end
+        [Y,y,beta,Bcov,STRC, thres, peakxyz] = myspm_graph(xSPM,SPM,hReg, cfg); % this only reads peak
+        
+        if ~isempty(thres)
+          EXP.CorrFDRthres = thres;
+        end
+        if EXP.print
+          spm_print(EXP.fname_spm_fig);
         end
       end
-      if isfield(EXP,'markCorrThres')
-        cfg.markCorrThres=EXP.markCorrThres;
-        if isfield(EXP,'CorrFDRthres')
-          cfg.markCorrThres.CorrFDRThres=EXP.CorrFDRthres;
-        end
-      end
-      cfg.atlas='fsl';
-      if isfield(EXP,'atlas')
-        if strfind(lower(EXP.atlas),'spm')
-          cfg.atlas='spm12';
-        elseif strfind(lower(EXP.atlas),'fsl')
-          cfg.atlas='fsl';
-        end
-      end
-      [Y,y,beta,Bcov,STRC, thres, peakxyz] = myspm_graph(xSPM,SPM,hReg, cfg); % this only reads peak
-      %% ---something wrong with the cluster name finding...
-      %      %% now read cluster name & prob.
-      %       % read sigcluster
-      %       nii = load_nii([EXP.dir_name '/' fname_sigclus '.img']);
-      %       sigvol = round(nii.img);
-      %       % find mni-xyz (mm) coordinates
-      %       peakijk = xyz2ijk(peakxyz, nii);
-      %       clusidx = sigvol(peakijk(1), peakijk(2), peakijk(3));
-      %       xyzs = ijk2xyz(find3(sigvol==clusidx), nii);
-      %       if strcmp(cfg.atlas,'fsl')
-      %         cSTRC = myfsl_atlasquery(xyzs);
-      %       elseif strcmp(cfg.atlas,'spm12')
-      %         cSTRC = myspm_NMatlas(xyzs);
-      %       end
-      %       %% ---something wrong with the cluster name finding...
-      %       cSTRC.name='na';
-      %       cSTRC.prob=0;
-      %% ---something wrong with the cluster name finding...
-      
-      if ~isempty(thres)
-        EXP.CorrFDRthres = thres;
-      end
-      if EXP.print
-        spm_print(EXP.fname_spm_fig);
-      end
-      
       %%
       if isfield(EXP,'mygraph')
         idx_x = find(SPM.xCon(cntrst).c);
@@ -335,15 +346,7 @@ for cntrst=1:numel(EXP.titlestr)
           TabDat.dat{PI(ci),5}, ...
           TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
           STRC.strc.name, STRC.strc.prob); %, ...
-        %cSTRC.name, cSTRC.prob);
         fclose(fid);
-        %         data2write={EXP.mygraph.y_name, EXP.mygraph.x_name, beta(idx_x), xSPM.STAT, ...
-        %           TabDat.dat{PI(ci),9}, TabDat.dat{PI(ci),10},  ...
-        %           TabDat.dat{PI(ci),11}, TabDat.dat{PI(ci),7}, TabDat.dat{PI(ci),3}, ...
-        %           TabDat.dat{PI(ci),5}, ...
-        %           TabDat.dat{PI(ci),12}(1), TabDat.dat{PI(ci),12}(2), TabDat.dat{PI(ci),12}(3), ...
-        %           STRC.strc.name, STRC.strc.prob};
-        %         xlswrite(fname_tab, data2write, 1, [char(TotalNC+ci+65),'1']);
       end
     end
     TotalNC=TotalNC+NC;
@@ -352,11 +355,15 @@ end
 
 %% copy 'significant' results to dir_sum
 if TotalNC && isfield(EXP,'dir_sum')
-  [~,name1,~]=fileparts(EXP.dir_name);
+  [~,name1,~]=fileparts(EXP.dir_glm);
   [~,~]=mkdir(EXP.dir_sum);
   today=datestr(now,'yyyymmmdd');
-  src=fullfile(EXP.dir_name,['spm_',today,'.ps']);
+  src=fullfile(EXP.dir_glm,['spm_',today,'.ps']);   % whole brain table?
   trg=[EXP.dir_sum,'/spm_',today,'_',name1,'.ps'];
+  system(['cp ',src,' ',trg]);
+  src=EXP.fname_spm_fig;
+  [~,b,c] = fileparts(src);
+  trg=[EXP.dir_sum,'/',b,c];
   system(['cp ',src,' ',trg]);
   
   fname_sumtab = [EXP.dir_sum,'/summary.csv'];

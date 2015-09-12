@@ -1,7 +1,17 @@
 function EXP = myspm_unwarp(EXP)
 % EXP = myspm_unwarp(EXP)
+%
+%
+% (cc) 2015, sgKIM.  solleo@gmail.com  https://ggooo.wordpress.com
+
+
+spm('Defaults','fmri')
 global overwrite
+if isempty(overwrite)
+  overwrite=0;
+end
 pwd0=pwd;
+
 disp('# Realigning and unwarping..');
 if iscell(EXP.fname_epi)
   n_sess = numel(EXP.fname_epi);
@@ -11,7 +21,11 @@ else
 end
 EXP.n_sess = n_sess;
 if ~isfield(EXP,'dir_exp')
-  [dir_exp,~,~] = fileparts(EXP.fname_epi{1});
+  if strcmp(EXP.fname_epi{1}(1),'/')
+    [dir_exp,~,~] = fileparts(EXP.fname_epi{1});
+  else
+    dir_exp=pwd;
+  end
 else
   dir_exp = EXP.dir_exp;
 end
@@ -37,7 +51,7 @@ for sess = 1:n_sess
   FlagsC.PW       = ''; % weighting image (1/std)
   FlagsC.graphics = 0;
   FlagsC.lkp      = 1:6;
-  [~,name1,ext1] = fileparts(P);
+  [dir1,name1,ext1] = fileparts(P);
   if ~exist([dir_exp,'/rp_',name1,'.txt'],'file')
     disp(['# Realigning to mean image: ',P,'...']);
     spm_realign(P,FlagsC);
@@ -45,57 +59,64 @@ for sess = 1:n_sess
   
   %% 2. Unwarp and resample
   % 2-1. find field map files:
+  
   if isfield(EXP,'fmap')	% fieldmap scan available
-    if ~isfield(EXP.fmap,'shortmag') || ~isfield(EXP.fmap,'phasedif')
+    if (~isfield(EXP.fmap,'shortmag') || ~isfield(EXP.fmap,'phasedif')) && ~isfield(EXP.fmap,'vdm')
       [~,fullnames] = mydir(EXP.fmap.fname_query,1);
       EXP.fmap.shortmag = fullnames{1};
       EXP.fmap.phasedif = fullnames{3};
+      
+      % 2-1-2. find echo time from the filenames..
+      TEs=[0 0];
+      [~,fname2,~] = fileparts(EXP.fmap.shortmag);
+      idx1 = strfind(fname2,'_Te');
+      TEs(1) = str2double(fname2(idx1+3:end));
+      [~,fname2,~] = fileparts(EXP.fmap.phasedif);
+      idx1 = strfind(fname2,'_Te');
+      TEs(2) = str2double(fname2(idx1+3:end));
+      disp(['> TEs = ',num2str(TEs(1)),' / ',num2str(TEs(2))]);
     end
-    % 2-1-2. find echo time from the filenames..
-    TEs=[0 0];
-    [~,fname2,~] = fileparts(EXP.fmap.shortmag);
-    idx1 = strfind(fname2,'_Te');
-    TEs(1) = str2double(fname2(idx1+3:end));
-    [~,fname2,~] = fileparts(EXP.fmap.phasedif);
-    idx1 = strfind(fname2,'_Te');
-    TEs(2) = str2double(fname2(idx1+3:end));
-    disp(['> TEs = ',num2str(TEs(1)),' / ',num2str(TEs(2))]);
     % 2-1-3. check if VDM is already computed
-    [path1,a,b]=fileparts(EXP.fmap.phasedif);
-    fmap = fullfile(path1, ['vdm5_sc',a,b]);
+    if isfield(EXP.fmap,'vdm')
+      fmap = EXP.fmap.vdm;
+    else
+      [path1,a,b] = fileparts(EXP.fmap.phasedif);
+      fmap = fullfile(path1, ['vdm5_sc',a,b]);
+    end
+    
     if exist(fmap,'file') && ~overwrite
       disp('# Using pre-computed voxel displacement map (VDM):');
       ls(fmap)
-    else
+    elseif isfield(EXP.fmap,'shortmag');
       disp('# Computing voxel displacement map (VDM) from:');
       fprintf('short-magnitude: ' ); ls(EXP.fmap.shortmag);
       fprintf('phase-difference: '); ls(EXP.fmap.phasedif);
       TRT=prepare_vdm ( EXP.fmap.shortmag, EXP.fmap.phasedif, TEs, ...
         P, EXP.epitype, [], EXP.fname_t1w );
+      [~,a,b] = fileparts(P);
+      trg=[dir_exp,'/vdm5_sc',a,b];
+      if ~exist(trg,'file')
+        system(['ln -s ',fmap,' ',trg]);
+      end
+      EXP.fmap.fname_origvdm = fmap;
+      EXP.fmap.fname_vdm = trg;
+      fmap = trg;
+      
+      fid = fopen([dir_exp,'/fmap_params_for_',name1,ext1,'.txt'],'w');
+      if isfield(EXP,'epitype')
+        fprintf(fid, 'EPI type: %s\n', EXP.epitype);
+      end
+      fprintf(fid, 'Magnitude with a short TE: %s\n',EXP.fmap.shortmag);
+      fprintf(fid, 'Phase difference (deg): %s\n',EXP.fmap.phasedif);
+      fprintf(fid, 'VDM original filename: %s\n', EXP.fmap.fname_origvdm);
+      fprintf(fid, 'TE(msec)= %f/%f\n', TEs(1), TEs(2));
+      if ~exist('TRT','var')
+        TRT=nan;
+      end
+      fprintf(fid, 'TotalReadoutTime(msec)= %f\n', TRT);
+      fprintf(fid, '=====%s====\n\n',date);
+      fclose(fid);
     end
-    [~,a,b] = fileparts(P);
-    trg=[EXP.dir_exp,'/vdm5_sc',a,b];
-    if ~exist(trg,'file')
-      system(['ln -s ',fmap,' ',trg]);
-    end
-    EXP.fmap.fname_origvdm = fmap;
-    EXP.fmap.fname_vdm = trg;
-    fmap = trg;
-    
-    fid = fopen([dir_exp,'/fmap_params_for_',name1,ext1,'.txt'],'w');
-    if isfield(EXP,'epitype')
-      fprintf(fid, 'EPI type: %s\n', EXP.epitype);
-    end
-    fprintf(fid, 'Magnitude with a short TE: %s\n',EXP.fmap.shortmag);
-    fprintf(fid, 'Phase difference (deg): %s\n',EXP.fmap.phasedif);
-    fprintf(fid, 'VDM original filename: %s\n', EXP.fmap.fname_origvdm);
-    fprintf(fid, 'TE(msec)= %f/%f\n', TEs(1), TEs(2));
-    if ~exist('TRT','var')
-      TRT=nan;
-    end
-    fprintf(fid, 'TotalReadoutTime(msec)= %f\n', TRT);
-    fprintf(fid, '=====%s====\n\n',date);
-    fclose(fid);
   else
     disp(['# No fieldmap given, will estimate from the EPI file, ', ...
       'which makes only limited correction']);
@@ -141,7 +162,11 @@ for sess = 1:n_sess
     ls([dir_exp,'/u',name1,ext1]);
   end
   [p1,n1,e1] = fileparts(EXP.fname_epi{sess});
-  EXP.fname_epi{sess} = [p1,'/u',n1,e1];
+  if isempty(p1)
+    EXP.fname_epi{sess} = [p1,'a',n1,e1];
+  else
+    EXP.fname_epi{sess} = [p1,'/a',n1,e1];
+  end  
 end
 
 cd(pwd0);

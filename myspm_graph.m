@@ -83,6 +83,7 @@ function [Y,y,beta,Bcov ,STRC,thres,xyz] = myspm_graph(xSPM,SPM,hReg, cfg)
 % $Id: spm_graph.m 4262 2011-03-25 13:39:20Z guillaume $
 
 % modified by sgKIM, 2015.
+Y=[]; y=[]; beta=[]; Bcov=[]; STRC=[]; thres=[]; peakxyz=[];
 
 Ic=cfg.Ic;  % index of contrast
 xXi=cfg.xXi; % column # of the variable of interest in the design matrix
@@ -362,10 +363,13 @@ switch Cplot
     
     %             str  = 'Which explanatory variable?';
     %             i    = spm_input(str,'!+1','m',SPM.xX.name);
-    i    = xXi;
-    x    = SPM.xX.xKXs.X(:,xXi);
-    XLAB = SPM.xX.name{i};
     
+    % when contrast has one only non-zero value:
+    i    = xXi;
+    %x    = SPM.xX.xKXs.X(:,xXi);
+    x  = SPM.xX.xKXs.X * cfg.contrast;
+    XLAB = SPM.xX.name{i};
+    if ~exist('skipTheGraph','var')
     %offset adjustment (by sgKIM)
     %meany = mean(spm_get_data(SPM.xY.P, XYZ));
     yoffset = beta(1);
@@ -391,7 +395,7 @@ switch Cplot
     hold on
     [p q] = sort(x);
     %Col(4,:)=[.5 .5 1];
-    h=[];
+    h=[0 0];
     if all(diff(x(q))) % no duplication of x (thus likely continuous..?)
       h(2)=plot(x(q),Y1(q),'LineWidth',4,'Color',Col(2,:));
       %plot(x(q),y(q),'-','Color',[.8 .8 .8]);
@@ -478,6 +482,7 @@ switch Cplot
     hold off
     grid on; box on;
     %%
+    end
     
 end
 

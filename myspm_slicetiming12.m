@@ -1,10 +1,17 @@
 function EXP = myspm_slicetiming12 (EXP)
 % EXP = myspm_slicetiming12(EXP)
 %
+% EXP requires:
+%  .fname_epi
+%  .fname_t1w
+%  .epitype : either "3T_EPIwb_2.3mm_iPAT3" or "7T_EPIslab_1.5mm_iPAT3" (or "7T_EPIwb_1mm_iPAT1")
+% 
+%
 % Slice-timing correction after realignment 
 % using slice timing correction code from SPM12
 % (cc) 2015. sgKIM
 
+spm('Defaults','fmri')
 pwd0=pwd;
 
 disp('# Slice timing correcting..');
@@ -16,13 +23,15 @@ else
 end
 EXP.n_sess = n_sess;
 if ~isfield(EXP,'dir_exp')
-  [dir_exp,~,~] = fileparts(EXP.fname_epi{1});
+  if strcmp(EXP.fname_epi{1}(1),'/')
+    [dir_exp,~,~] = fileparts(EXP.fname_epi{1});
+  else
+    dir_exp=pwd;
+  end
 else
   dir_exp = EXP.dir_exp;
 end
-if ~isfield(EXP,'fname_t1w')
-  EXP.fname_t1w='';
-end
+
 cd (dir_exp);
 for sess = 1:n_sess
   if isfield(EXP,'subjid');
@@ -54,7 +63,12 @@ for sess = 1:n_sess
     spm_slice_timing12(P2, EXP.slice_order, EXP.ref_slice_msec, ...
       [0 EXP.TR_sec], 'a');
   end
-  EXP.fname_epi{sess} = [EXP.dir_exp,'/a',name1,ext1];
+  [p1,n1,e1] = fileparts(EXP.fname_epi{sess});
+  if isempty(p1)
+    EXP.fname_epi{sess} = [p1,'a',n1,e1];
+  else
+    EXP.fname_epi{sess} = [p1,'/a',n1,e1];
+  end
 end
 
 cd(pwd0);
