@@ -9,6 +9,7 @@ con=[];
 con.spmmat = {[EXP.dir_glm,'/SPM.mat']};
 
 NumSess = EXP.NumSess;
+SIGN ={'+','-'};
 
 if isfield(EXP,'cntrstMtx')
   NumCond = size(EXP.cntrstMtx,1);
@@ -16,6 +17,7 @@ if isfield(EXP,'cntrstMtx')
     if isfield(EXP,'titlestr')
       con.consess{k}.tcon.name = EXP.titlestr{k};
     else
+      s=2-mod(k,2);
       con.consess{k}.tcon.name = [SIGN{s}, EXP.COND(k).name];
     end
     con.consess{k}.tcon.convec = EXP.cntrstMtx(k,:);
@@ -29,7 +31,6 @@ else
   NumCond = EXP.NumCond;
   k=0;
   % First single regressor (compared to implicit baseline)
-  SIGN ={'+','-'};
   for i=1:NumCond
     for s=1:2
       k=k+1;

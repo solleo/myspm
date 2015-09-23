@@ -20,6 +20,7 @@ EXP.fname_dcm= res{1};
 hdr = spm_dicom_headers(EXP.fname_dcm);
 slice_order = hdr{1}.Private_0019_1029;
 TR_sec = hdr{1}.RepetitionTime/1000
+EXP.TR_sec = TR_sec;
 ref_slice_msec = TR_sec*1000/2        % in msec (when slice_order in given in msec)
 hdr = load_nii_hdr(EXP.fname_epi);
 NumFrames = hdr.dime.dim(5)

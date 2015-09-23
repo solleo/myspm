@@ -265,6 +265,8 @@ for j=1:EXP.NumSess
   end
   
   %% and set different contrast and printout all results
+  EXP.thresh.desc  = 'FWE';
+  EXP.thresh.alpha = 0.05;
   EXP = myspm_cntrst (EXP);
   
 end % for session

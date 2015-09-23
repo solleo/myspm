@@ -168,9 +168,6 @@ for cntrst=1:numel(EXP.titlestr)
   spm_jobman('initcfg');
   spm_jobman('run', matlabbatch);
   
-  if isfield(EXP,'MIP_only') 
-    continue
-  end
   
   %% Get all variables results report
   xSPM= evalin('base','xSPM;');
@@ -221,6 +218,11 @@ for cntrst=1:numel(EXP.titlestr)
   EXP.minp(cntrst)=min([pvals,1]);
   
   NC=numel(COORDS);
+  
+  %% Skip the last for only MIP
+  if isfield(EXP,'MIP_only')
+    continue
+  end
   
   %% Now save "significant" cluster maps (from spm code somewhere...)
   if NC
@@ -274,18 +276,9 @@ for cntrst=1:numel(EXP.titlestr)
       spm_orthviews('reposition',COORDS{ci});
       global st
       st.vols{1}.blobs{1}.max=EXP.cmax;
+      spm_orthviews('Xhirs','on');
       spm_orthviews('redraw');
-%       if sum(SPM.xCon(cntrst).c)<0
-%         colormap(bluecmap);
-%       elseif sum(SPM.xCon(cntrst).c)>0
-%         colormap(redcmap);
-%       else
-%         if SPM.xCon(cntrst).c(1)>0
-%           colormap(redcmap);
-%         else
-%           colormap(bluecmap);
-%         end
-%       end
+
       % odd/even index of contrast
       if mod(cntrst,2)
         colormap(redcmap);
