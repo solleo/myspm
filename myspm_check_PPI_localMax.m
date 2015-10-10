@@ -38,7 +38,7 @@ for i = 1 : NumSubj
   d = size(base.img);
   coord_xyz =  PPI.xY.xyz';
   coord_ijk =  round(xyz2ijk(coord_xyz,fname_func));
-  coord_ijk0 = round(xyz2ijk(EXP.voi_coord,fname_func));
+  coord_ijk0 = round(xyz2ijk(EXP.voi.coord,fname_func));
   
   axespos(ax,i); hold on;
   img1 = base.img(:,:,coord_ijk(3))';
@@ -46,20 +46,32 @@ for i = 1 : NumSubj
   img2(isnan(img2))=0;
   img2(img2<EXP.thres) = 0;
   imagesc(zeroone(img1)+zeroone(img2));
-  cmap=hot(64*2);
-  colormap([bone(64);cmap(70-20:129-16,:)]);
+  cmap=sgcolormap('GRAY-RED');
+  if isfield(EXP,'isneg')&&EXP.isneg, cmap=sgcolormap('GRAY-BLUE'); end
+  colormap(cmap);
   caxis([0 2])
-  scatter(d(1)-coord_ijk0(1),coord_ijk0(2),200,'b+','linewidth',2); % initial coord
-  scatter(d(1)-coord_ijk(1), coord_ijk(2),100,'co','linewidth',2);  % nearest local maximum
-  axis off; axis image; set(gca,'ydir','nor');
-  text(23,10,[subjid,':T>',num2str(round(EXP.thres*10)/10)], 'backgroundColor','w')
+  line([d(1)-coord_ijk0(1);d(1)-coord_ijk0(1)],[0;d(2)+1],'color','w');
+  line([0;d(1)+1], [coord_ijk0(2);coord_ijk0(2)],'color','w');
+  if sum(coord_ijk0==coord_ijk)<3,
+    vx=d(1)-coord_ijk(1); vy=coord_ijk(2); vr=EXP.voi.radius;
+    rectangle('position',[vx-vr, vy-vr, vr*2, vr*2],'curvature',[1 1],'edgecolor','k');
+  end
+  axis([1 d(1) 1 d(2)]); axis off; axis image; set(gca,'ydir','nor');
+  if isfield(EXP,'masksubjid')&&EXP.masksubjid
+    subjname=['subj',pad(i,3)];
+  else
+    subjname=subjid;
+  end
+  text(23,10,[subjname,':T>',num2str(round(EXP.thres*10)/10)], 'backgroundColor','w')
+  
   drawnow;
 end
 axespos(ax,NumSubj+1);
 set(gca,'color','k'); axis off;
-text(0,0.3,EXP.voi_name,  'interp','none','color','w');
-text(0,0.2,EXP.dir_ppi,'interp','none','color','w');
+text(0,0.3,EXP.voi.name,  'interp','none','color','w');
+text(0,0.2,EXP.dir_glm,   'interp','none','color','w');
 text(0,0.1,EXP.name_func, 'interp','none','color','w');
-screen2png([EXP.dir_fig,'/',EXP.voi_name,'_',EXP.dir_ppi,'_',EXP.name_func,'.png']);
-close(gcf)
+screen2png([EXP.dir_fig,'/',EXP.voi.name,'_',EXP.dir_glm,'_',EXP.name_func,'.png']);
+
+ close(gcf)
 end

@@ -1,40 +1,57 @@
 function EXP=myspm_fmriglm (EXP)
 % EXP=myspm_fmriglm (EXP)
 %
-% This script helps you to run GLMs for the 1st-level fMRI analysis
-%   using fMRI model specification & specification.
-%   Followingly 1st-level GLM results are created using
-%   myspm_result.m and myspm_graph.m to create cluster visualization,
-%   and plots using SPM
+% This script helps you to run GLMs for the 1st-level fMRI analysis using fMRI model 
+%   specification & specification. A result report of the 1st-level GLM is created 
+%   using myspm_result.m and myspm_graph.m. The important difference
+%   from the simple GLM is that it deals with temporal aspects of fMRI data including
+%   slow hedonamics, pre-whitening for auto-correlation, as well as high-pass
+%   filtering for detrending.
 %
 % Inputs:
-% required fields for myspm_glm.m:
-%   EXP.dir_glm     <string> directory to save SPM results
-%   EXP.files_query  <string> for query to find image filenames,
-%     or
-%   EXP.filenames    <cell:1xN> for N images
+% EXP requires fields for myspm_fmriglm.m:
+% -input files
+%  .files_query  'Nx1' for query to find image filenames, "${subjid}" will
+%                be replaced by given subjIDs
+% or
+%  .filenames    {Nimgx1} (instead of files_query)
 %
-%   EXP.model_desc   <str>
+% -output directory
+%  .dir_glm      'Nx1' directory to save SPM results
+% or
+%  .dir_base     'Nx1' directory for a subdirectory that has SPM.mat
 %
-% optional fields for myspm_glm.m:
-%   EXP.fwhm         <num:1x1> a scalr for of an isotropic smoothing
-%   EXP.masking      <string> filename for an explicit (inclusive) mask
+% - for fMRI design matrix
+%  .TR
+%  .COND(k).name
+%  .COND(k).onset
+% (.COND(k).param)
+%  .reg
+%  .fname_rp
+% (.hpfcutoff)   : EXP.TR*EXP.NumFrames(j)/10
+% (.masking)     'Nx1' filename for an explicit (inclusive) mask
+% (.GMmask)
+% (.fwhm)        [1x1|1x3] 3-D smoothing kernel size in mm
 %
-% optional fields for myspm_result.m:
-%   EXP.thresh.desc    <string>  'FWE','none', or 'cluster'(default)
-%   EXP.thresh.alpha   <1x1:num> alpha level (default= 0.05)
-%   EXP.thresh.extent  <1x1:num> a number of voxels for extent threshold
-%   EXP.thresh.clusterInitAlpha   <1x1 num> 0.001 (default) for a cluster-threshold
-%   EXP.thresh.clusterInitExtent  <1x1 num> 10 (voxels; default)
-%   EXP.fname_struct   <string>  '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz' (default)
-%   EXP.titlestr       <1xNumCont:cell> {'positive','negative'} (default)
-%   EXP.dir_sum        <string>  '' (a summary directory where you want to copy 'significant' results into)
-%   EXP.append         <1x1 num> = 0 (default)
-%   EXP.print          <1x1 num> = 1 (default)
-%   EXP.mygraph.x_name <string>  'x'
-%   EXP.mygraph.y_name <string>  'y' for the scatterplots and summary tables
-%   EXP.atlas          <string>  'fsl' (default) or 'spm12'
-%   EXP.fname_spm_fig  <string>
+% - for PPI,
+%  .fname_ppi
+%
+% - optionally for myspm_result.m:
+% (.thresh.desc)    'Nx1'  'FWE','none', or 'cluster'(default)
+% (.thresh.alpha)   [1x1]  alpha level (default=0.05)
+% (.thresh.extent)  [1x1]  extent threshold of clusters in voxels (default=0)
+% (.thresh.clusterInitAlpha)   <1x1> cluster forming height threshold (default=0.001)
+% (.thresh.clusterInitExtent)  <1x1> cluster forming extent (in voxels) threshold (default=10)
+% (.fname_struct)   'Nx1' fullpath filename for background anatomical image for orthogonal slices
+%                         (defulat='$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz')
+% (.titlestr)       {1xNcont} Title text for SPM result report (default={'positive','negative'})
+% (.dir_sum)        'Nx1' a summary directory into where you want to copy significant results
+% (.append)         [1x1] whether to append results into an existing report (default=0)
+% (.print)          [1x1] whether to generate results (default=1)
+% (.mygraph.x_name) 'Nx1' x-axis label in a scatterplot (default='x')
+% (.mygraph.y_name) 'Nx1' y-axis label in a scatterplot (default='y')
+% (.atlas)          'Nx1' atlas to find anatomical names: 'fsl' (default) or 'spm12'
+%
 %
 % Example:
 %
@@ -76,7 +93,7 @@ end
 
 if isfield(EXP,'files_query')
   fnames={};
-  files = dir(EXP.files_query);
+  files = dir(EXP.files_query);  % this will sort the filename!
   [mypath,~,~] = fileparts(EXP.files_query);
   for n=1:numel(files)
     fnames{n,1} = [mypath,'/',files(n).name,',1'];
@@ -108,40 +125,21 @@ else
 end
 EXP.NumCntrst = size(EXP.cntrstMtx,1);
 
-%% 0.5. isotropic smoothing
-
+%% isotropic smoothing
 if isfield(EXP,'fwhm')
-  matlabbatchs={};
-  if numel(EXP.fwhm) == 1
-    fwhm = [EXP.fwhm EXP.fwhm EXP.fwhm];
-  else
-    fwhm = EXP.fwhm;
-  end
-  matlabbatchs{1}.spm.spatial.smooth.data = fnames;
-  matlabbatchs{1}.spm.spatial.smooth.fwhm = fwhm;
-  matlabbatchs{1}.spm.spatial.smooth.dtype = 0;
-  matlabbatchs{1}.spm.spatial.smooth.im = 0;
-  prefix=['s' num2str(round(mean(fwhm))) '_'];
-  matlabbatchs{1}.spm.spatial.smooth.prefix = prefix;
-  for j=1:size(fnames,2)
-    for n=1:size(fnames,1)
-      [a,b,c]=fileparts(fnames{n,j});
-      fnames{n,j} = [a '/' prefix b c];
-    end
-  end
-  if ~exist(fnames{end,1}(1:end-2),'file')
-    spm_jobman('run', matlabbatchs)
-  end
+  EXP.fnames = fnames;
+  EXP = myspm_smooth(EXP);
+  fnames = EXP.fnames;
 end
 
 %% 1. model specification
 matlabbatch = {};
+matlabbatch{1}.spm.stats.fmri_spec.sess.multi = {''}; matlabbatch{1}.spm.stats.fmri_spec.sess.multi_reg = {''}; % for spm12
 matlabbatch{1}.spm.stats.fmri_spec.dir = {EXP.dir_glm};
 matlabbatch{1}.spm.stats.fmri_spec.timing.units = 'secs';
 matlabbatch{1}.spm.stats.fmri_spec.timing.RT = EXP.TR;
 matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t = 16;
 matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t0 = 8; % middle point
-
 sess=[];
 for j=1:EXP.NumSess
   for t=1:EXP.NumFrames
@@ -225,7 +223,14 @@ for j=1:EXP.NumSess
     if isnumeric(EXP.GMmask)
       fname_func1 = fnames{1,1}(1:end-2);
       fname_mask = [EXP.dir_glm,'/GMmask_',num2str(EXP.GMmask),'.nii'];
-      fname_moving = [spm('Dir'),'/tpm/grey.nii'];
+      spmversion=spm('version');
+      if strcmp(spmversion(4:5),'8 ')
+        fname_moving = [spm('Dir'),'/tpm/grey.nii'];
+      else
+        fname_tpm = [spm('Dir'),'/tpm/TPM.nii'];
+        fname_moving = '/tmp/grey.nii';
+        unix(['fslroi ',fname_tpm,' ',fname_moving,' 0 1']);
+      end
       unix(['mri_convert --like ',fname_func1,' ',fname_moving,' ',fname_mask]);
       nii1 = load_untouch_nii(fname_func1,1);
       nii2 = load_untouch_nii(fname_mask);

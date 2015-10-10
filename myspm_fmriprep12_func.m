@@ -1,10 +1,9 @@
-function EXP = myspm_fmriprep12 (EXP)
-% EXP = myspm_fmriprep12 (EXP)
+function EXP = myspm_fmriprep12_func (EXP)
+% EXP = myspm_fmriprep12_func (EXP)
 %
 % This does:
 %   fname_epi -> slice timing correction -> unified unwarp+realign
-%   fname_t1w -> unified segmentation+normalization -> deformation skullstripped t1w into mni 
-%   fname_epi -> Coregister into t1w, normalize into mni, smooting (fwhm=2.5 vox)
+%   fname_t1w -> unified segmentation+normalization -> coregister into epi space
 %
 % EXP requires:
 %  .fwhm_mm
@@ -42,7 +41,7 @@ end
 spm('Defaults','fmri')
 spm_jobman('initcfg');
 matlabbatch={};
-% 1. slice timing correction
+% 1. STC
 ls(EXP.fname_epi);
 for t=1:NumFrames
   matlabbatch{1}.spm.temporal.st.scans{1}{t} = [EXP.fname_epi,',',num2str(t)];
@@ -118,10 +117,10 @@ matlabbatch{3}.spm.spatial.preproc.warp.fwhm = 0;
 matlabbatch{3}.spm.spatial.preproc.warp.samp = 3;
 matlabbatch{3}.spm.spatial.preproc.warp.write = [0 1];
 
-% 4. unbias T1w
+% 4. take mT1w
 matlabbatch{4}.cfg_basicio.file_dir.cfg_fileparts.files(1) = cfg_dep('Segment: Bias Corrected (1)', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','channel', '()',{1}, '.','biascorr', '()',{':'}));
 
-% 5. Skullstripping t1w
+% 5. Skullstripping
 matlabbatch{5}.spm.util.imcalc.input(1) = cfg_dep('Segment: c1 Images', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','tiss', '()',{1}, '.','c', '()',{':'}));
 matlabbatch{5}.spm.util.imcalc.input(2) = cfg_dep('Segment: c2 Images', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','tiss', '()',{2}, '.','c', '()',{':'}));
 matlabbatch{5}.spm.util.imcalc.input(3) = cfg_dep('Segment: c3 Images', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','tiss', '()',{3}, '.','c', '()',{':'}));
@@ -135,35 +134,14 @@ matlabbatch{5}.spm.util.imcalc.options.mask = 0;
 matlabbatch{5}.spm.util.imcalc.options.interp = 1;
 matlabbatch{5}.spm.util.imcalc.options.dtype = 4;
 
-% 6. coreg: epi to t1w
-matlabbatch{6}.spm.spatial.coreg.estimate.ref(1) = cfg_dep('Image Calculator: Imcalc Computed Image', substruct('.','val', '{}',{5}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','files'));
-matlabbatch{6}.spm.spatial.coreg.estimate.source(1) = cfg_dep('Realign & Unwarp: Unwarped Mean Image', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','meanuwr'));
+% 6. coreg: t1w to epi
+matlabbatch{6}.spm.spatial.coreg.estimate.source(1) = cfg_dep('Image Calculator: Imcalc Computed Image', substruct('.','val', '{}',{5}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','files'));
+matlabbatch{6}.spm.spatial.coreg.estimate.ref(1) = cfg_dep('Realign & Unwarp: Unwarped Mean Image', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','meanuwr'));
 matlabbatch{6}.spm.spatial.coreg.estimate.other(1) = cfg_dep('Realign & Unwarp: Unwarped Images (Sess 1)', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','sess', '()',{1}, '.','uwrfiles'));
 matlabbatch{6}.spm.spatial.coreg.estimate.eoptions.cost_fun = 'nmi';
 matlabbatch{6}.spm.spatial.coreg.estimate.eoptions.sep = [4 2];
 matlabbatch{6}.spm.spatial.coreg.estimate.eoptions.tol = [0.02 0.02 0.02 0.001 0.001 0.001 0.01 0.01 0.01 0.001 0.001 0.001];
 matlabbatch{6}.spm.spatial.coreg.estimate.eoptions.fwhm = [7 7];
-
-% 7. normalization of epi
-matlabbatch{7}.spm.spatial.normalise.write.subj.def(1) = cfg_dep('Segment: Forward Deformations', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','fordef', '()',{':'}));
-matlabbatch{7}.spm.spatial.normalise.write.subj.resample(1) = cfg_dep('Realign & Unwarp: Unwarped Images (Sess 1)', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','sess', '()',{1}, '.','uwrfiles'));
-matlabbatch{7}.spm.spatial.normalise.write.woptions.bb = [-78 -112 -70; 78 76 85];
-matlabbatch{7}.spm.spatial.normalise.write.woptions.vox = [1 1 1]*EXP.vox_mm;
-matlabbatch{7}.spm.spatial.normalise.write.woptions.interp = 4;
-
-% 8. smoothing epi
-matlabbatch{8}.spm.spatial.smooth.data(1) = cfg_dep('Normalise: Write: Normalised Images (Subj 1)', substruct('.','val', '{}',{7}, '.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('()',{1}, '.','files'));
-matlabbatch{8}.spm.spatial.smooth.fwhm = [1 1 1]*EXP.fwhm_mm;
-matlabbatch{8}.spm.spatial.smooth.dtype = 0;
-matlabbatch{8}.spm.spatial.smooth.im = 0;
-matlabbatch{8}.spm.spatial.smooth.prefix = 's';
-
-% 9. normalization of skullstripped t1w
-matlabbatch{9}.spm.spatial.normalise.write.subj.def(1) = cfg_dep('Segment: Forward Deformations', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','fordef', '()',{':'}));
-matlabbatch{9}.spm.spatial.normalise.write.subj.resample(1) = cfg_dep('Image Calculator: Imcalc Computed Image', substruct('.','val', '{}',{5}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','files'));
-matlabbatch{9}.spm.spatial.normalise.write.woptions.bb = [-78 -112 -70; 78 76 85];
-matlabbatch{9}.spm.spatial.normalise.write.woptions.vox = [1 1 1];
-matlabbatch{9}.spm.spatial.normalise.write.woptions.interp = 4;
 
 [p1,~,~] = fileparts(EXP.fname_epi);
 if isempty(p1)

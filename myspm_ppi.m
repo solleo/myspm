@@ -10,7 +10,6 @@ function EXP = myspm_ppi (EXP)
 %   .coord
 %   .radius
 %   .fixed
-%
 %  .ppi
 %   .name
 %   .cntrstVec
@@ -65,29 +64,11 @@ for j=1:EXP.NumSess
 end
 EXP.NumFrames=NF;
 
-%% 0.5. isotropic smoothing
+%% isotropic smoothing
 if isfield(EXP,'fwhm')
-  matlabbatchs={};
-  if numel(EXP.fwhm) == 1
-    fwhm = [EXP.fwhm EXP.fwhm EXP.fwhm];
-  else
-    fwhm = EXP.fwhm;
-  end
-  matlabbatchs{1}.spm.spatial.smooth.data = fnames;
-  matlabbatchs{1}.spm.spatial.smooth.fwhm = fwhm;
-  matlabbatchs{1}.spm.spatial.smooth.dtype = 0;
-  matlabbatchs{1}.spm.spatial.smooth.im = 0;
-  prefix=['s' num2str(round(mean(fwhm))) '_'];
-  matlabbatchs{1}.spm.spatial.smooth.prefix = prefix;
-  for j=1:size(fnames,2)
-    for n=1:size(fnames,1)
-      [a,b,c]=fileparts(fnames{n,j});
-      fnames{n,j} = [a '/' prefix b c];
-    end
-  end
-  if ~exist(fnames{end,1}(1:end-2),'file')
-    spm_jobman('run', matlabbatchs)
-  end
+  EXP.fnames = fnames;
+  EXP = myspm_smooth(EXP);
+  fnames = EXP.fnames;
 end
 
 %% 1. compute PPI

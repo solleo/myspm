@@ -1,8 +1,9 @@
 function EXP=myspm_glm (EXP)
 % EXP=myspm_glm (EXP)
 %
-% This script helps you to set and run GLMs. A result report of the 1st-level GLM 
-%   will be created using myspm_result.m and myspm_graph.m
+% This script helps you to run GLMs, and forward the ouput
+%   to myspm_result.m and myspm_graph.m to create cluster visualization,
+%   and plots using SPM
 %
 %
 % EXP requires for myspm_glm.m:
@@ -12,11 +13,10 @@ function EXP=myspm_glm (EXP)
 %  .dir_base     'Nx1' directory for a subdirectory that has SPM.mat
 %
 % -input files
-%  .subjID       [NxM] or {Nx1}
-%  .files_query  'Nx1' a query to find image filenames. Wildcard (*) can be used
-%                except "${subj}", which will be replaced by given .subjID
+%  .files_query  'Nx1' for query to find image filenames, "${subjid}" will
+%                be replaced by given subjIDs
 % or
-%  .filenames    {Nsubjx1} (instead of files_query)
+%  .filenames    {Nimgx1} (instead of files_query)
 %
 % (.fwhm)        [1x1|1x3] 3-D smoothing kernel size in mm
 % (.masking)     'Nx1' filename for an explicit (inclusive) mask
@@ -40,13 +40,15 @@ function EXP=myspm_glm (EXP)
 % (.thresh.clusterInitExtent)  <1x1> cluster forming extent (in voxels) threshold (default=10)
 % (.fname_struct)   'Nx1' fullpath filename for background anatomical image for orthogonal slices
 %                         (defulat='$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz')
-% (.titlestr)       {1xNcont} Title text for SPM result report (default={'positive','negative'})
-% (.dir_sum)        'Nx1' a summary directory into where you want to copy significant results
+% (.titlestr)       {1xNcont} Title text for SPM result report 
+%                         (default={'positive','negative'})
+% (.dir_sum)        'Nx1'  '' (a summary directory where you want to copy 
+%                             'significant' results into)
 % (.append)         [1x1] whether to append results into an existing report (default=0)
 % (.print)          [1x1] whether to generate results (default=1)
 % (.mygraph.x_name) 'Nx1' x-axis label in a scatterplot (default='x')
 % (.mygraph.y_name) 'Nx1' y-axis label in a scatterplot (default='y')
-% (.atlas)          'Nx1' atlas to find anatomical names: 'fsl' (default) or 'spm12'
+% (.atlas)          'Nx1' atlas to find anatomical names: 'fsl' or 'spm12'
 %
 % Example:
 %
@@ -66,36 +68,35 @@ spm('Defaults','fmri')
 matlabbatch={};
 matlabbatch{1}.spm.stats.factorial_design.dir = {};
 if isfield(EXP,'files_query') % this could be bad
-  fnames=cell(numel(EXP.subjID),1); % this MUST be <Nx1>
-  %if isfield(EXP,'subjID')
-  idx = strfind(EXP.files_query,'${subj}');
-  prefix = EXP.files_query(1:idx-1);
-  suffix = EXP.files_query(idx+7:end);
-  for n=1:numel(EXP.subjID)
-    [~,res] = mydir([prefix,EXP.subjID{n},suffix]);
-    fnames{n,1}=[res{1},',1'];
+  fnames={}; % this MUST be <Nx1>
+  if isfield(EXP,'subjID')
+    idx = strfind(EXP.files_query,'*');
+    prefix = EXP.files_query(1:idx-1);
+    suffix = EXP.files_query(idx+1:end);
+    for n=1:numel(EXP.subjID)
+      fnames{n,1}=[prefix,EXP.subjID{n},suffix,',1'];
+    end
+  else
+    [~,fnames] = mydir(EXP.files_query);
+    if ~isempty(fnames)
+      for n=1:numel(fnames)
+        fnames{n,1} = [fnames{n,1},',1'];
+      end
+    else
+      txt = ls(EXP.files_query);
+      idx = strfind(txt,sprintf('\n'));
+      idx = [0 idx];
+      for n=1:numel(idx)-1
+        fnames{n,1} = [txt(idx(n)+1:idx(n+1)-1),',1'];
+      end
+    end
   end
-  %   else
-  %     [~,fnames] = mydir(EXP.files_query);
-  %     if ~isempty(fnames)
-  %       for n=1:numel(fnames)
-  %         fnames{n,1} = [fnames{n,1},',1'];
-  %       end
-  %     else
-  %       txt = ls(EXP.files_query);
-  %       idx = strfind(txt,sprintf('\n'));
-  %       idx = [0 idx];
-  %       for n=1:numel(idx)-1
-  %         fnames{n,1} = [txt(idx(n)+1:idx(n+1)-1),',1'];
-  %       end
-  %     end
-end
 elseif isfield(EXP,'filenames')
   for n=1:numel(EXP.filenames)
     fnames{n,1} = [EXP.filenames{n},',1'];
   end
-  else
-    error('You need to specify inputs in EXP.files_query or EXP.filenames');
+else
+  error('You need to specify inputs in EXP.files_query or EXP.filenames');
 end
 
 Nsubj=numel(fnames);
@@ -131,6 +132,7 @@ end
 
 %% design specification
 
+EXP.model_desc='t1';
 switch design
   case 'mreg' % multiple regression
     EXP = myspm_strcNterm(EXP);
@@ -181,10 +183,6 @@ end
 matlabbatch{1}.spm.stats.factorial_design.globalc.g_omit = 1;
 matlabbatch{1}.spm.stats.factorial_design.globalm.gmsca.gmsca_no = 1;
 matlabbatch{1}.spm.stats.factorial_design.globalm.glonorm = 1;
-
-if ~isfield(EXP,'model_desc')
-  EXP.model_desc=design;
-end
 
 if ~isfield(EXP,'dir_glm')&&isfield(EXP,'dir_base');
   if ~isfield(EXP,'dir_prefix'), EXP.dir_prefix=''; end

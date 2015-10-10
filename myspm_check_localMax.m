@@ -14,7 +14,6 @@ figure;
 for i = 1 : NumSubj
   subjid = EXP.subjID{i};
 
-  %fname1 = [dir0,subjid,'/wmmana.nii'];
   fname_strc = [dir0,'/',subjid,'/',EXP.name_strc];
   fname_func = [dir0,'/',subjid,'/',EXP.name_func];
   
@@ -32,8 +31,6 @@ for i = 1 : NumSubj
   
   base = load_nii(fname_strc);  
   func = load_nii(fname_func);
-  %fname4 = [dir0,subjid,'/glm_PPI_',voi(k).name,'xFCBD/con_0001.img'];
-  %fname4 = [dir0,subjid,'/glm_FC+FD+BC+BD_RP/con_0001.img'];
   
   load([dir0,subjid,'/glm_FC+FD+BC+BD_RP/PPI_',voi(k).name,'xFCBD.mat']);
   d = size(base.img);

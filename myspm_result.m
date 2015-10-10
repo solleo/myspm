@@ -5,43 +5,38 @@ function EXP = myspm_result(EXP)
 % if there is a suprathreshold voxels/clusters,
 % It generates orthogonal overlay sections for each local maximum.
 %
-% EXP.dir_name = '' (the directory where you have SPM.mat)
-% EXP.thresh.desc = either 'FWE','none', or 'cluster'
-% EXP.thresh.alpha = 0.05 (default)
-% EXP.thresh.extent = 0 (# fo voxels; default)
-% EXP.thresh.clusterInitAlpha = 0.001 (default) for a cluster-threshold
-% EXP.thresh.clusterInitExtent = 10 (voxels; default)
-% EXP.titlestr = {'positive','negative'} (default)
-% EXP.fname_struct = '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz' (by default)
-% EXP.dir_sum = '' (a summary directory where you want to copy 'significant'
-% results into)
-% EXP.append = 0 (default)
-% EXP.print  = 1 (default)
-% EXP.mygraph.y_name = 'x'
-% EXP.mygraph.x_name = 'y' for the scatterplots and summary tables
-% EXP.atlas = 'fsl' (default) or 'spm12'
-% EXP.fname_spm_fig <string>
+% EXP requires:
+%  .dir_glm      'Nx1' directory to save SPM results
+% (.thresh.desc)    'Nx1'  'FWE','none', or 'cluster'(default)
+% (.thresh.alpha)   [1x1]  alpha level (default=0.05)
+% (.thresh.extent)  [1x1]  extent threshold of clusters in voxels (default=0)
+% (.thresh.clusterInitAlpha)   <1x1> cluster forming height threshold (default=0.001)
+% (.thresh.clusterInitExtent)  <1x1> cluster forming extent (in voxels) threshold (default=10)
+% (.fname_struct)   'Nx1' fullpath filename for background anatomical image for orthogonal slices
+%                         (defulat='$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz')
+% (.titlestr)       {1xNcont} Title text for SPM result report (default={'positive','negative'})
+% (.dir_sum)        'Nx1' a summary directory into where you want to copy significant results
+% (.append)         [1x1] whether to append results into an existing table (default=0)
+% (.print)          [1x1] whether to generate figures and tables (default=1)
+% (.mygraph.x_name) 'Nx1' x-axis label in a scatterplot (default='x')
+% (.mygraph.y_name) 'Nx1' y-axis label in a scatterplot (default='y')
+% (.atlas)          'Nx1' atlas to find anatomical names: 'fsl' (default) or 'spm12'
+%
 %
 % (cc) 2015, sgKIM. solleo@gmail.com, https://ggooo.wordpress.com/
 
-%% Always print out the annotated tables
-if ~isfield(EXP,'mygraph')
-  EXP.mygraph.y_name='y';
-  EXP.mygraph.x_name='x';
-end
+%% Setting default parameters
+if ~isfield(EXP,'mygraph'), EXP.mygraph.y_name='y'; EXP.mygraph.x_name='x'; end
+if ~isfield(EXP,'append'),  EXP.append = 0;  end
+if ~isfield(EXP,'print'),   EXP.print = 1;   end
+if ~isfield(EXP,'thresh.desc'), EXP.thresh.desc='cluster';  end
 
-%% EXP.append?
-if ~isfield(EXP,'append')
-  EXP.append = 0;
-end
-if ~isfield(EXP,'print')
-  EXP.print = 1;
-end
+% set table filename
 today = datestr(now,'yyyymmmdd');
 fname_tab = fullfile(EXP.dir_glm,['spm_',today,'.csv']);
 fmt = {   '%s',   '%s',   '%0.3f', '%s','%0.3f','%0.3f','%-0.3f','%-0.3f','%-0.3f', '%0.0f','%3.0f','%3.0f','%3.0f',  '%s','%0.2f'};
 tab_fmt = cell2fmt (fmt);
-if EXP.append==0 && EXP.print==1
+if ~EXP.append && ~~EXP.print
   fid = fopen(fname_tab,'w');
   hdr_fmt = 'y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\n';
   fprintf(fid, hdr_fmt, EXP.thresh.desc);
@@ -52,50 +47,46 @@ if ~isfield(EXP,'fname_prefix')
 else
   prefix = EXP.fname_prefix;
 end
-%%
+
+% set figure filename
 if ~isfield(EXP,'fname_spm_fig')
   EXP.fname_spm_fig = fullfile(EXP.dir_glm,[prefix,'sigclus_spm_',today,'.ps']);
   EXP.fname_spm_fig = strrep(EXP.fname_spm_fig,'>','-gt-');
   EXP.fname_spm_fig = strrep(EXP.fname_spm_fig,'<','-lt-');
 end
+
+% delete previous figure files today (rewriting)
 if EXP.print && exist(EXP.fname_spm_fig,'file')
   delete(EXP.fname_spm_fig);
 end
 
-%% Result Reports with any given threshold
-spm('defaults','fmri');
-spm_jobman('initcfg');
-
+% setting a thresholding code
 if strcmpi('cluster',EXP.thresh.desc)
   method=3;
 elseif strcmpi('FWE',EXP.thresh.desc)
   method=1;
 elseif strcmpi('none',EXP.thresh.desc)
   method=2;
-else
-  error('EXP.thresh.desc should be either ''cluster'', ''FWE'', ''none''');
-end
-if ~isfield(EXP.thresh,'alpha')
-  EXP.thresh.alpha=0.05;
-end
-if ~isfield(EXP.thresh,'extent')
-  EXP.thresh.extent=0;
-end
-if ~isfield(EXP.thresh,'override')
-  EXP.thresh.override=0;
-end
-if ~isfield(EXP.thresh,'clusterInitAlpha')
-  EXP.thresh.clusterInitAlpha = 0.001;
-end
-if ~isfield(EXP.thresh,'clusterInitExtent')
-  EXP.thresh.clusterInitExtent = 10;
+% else
+%   error('EXP.thresh.desc should be either ''cluster'', ''FWE'', ''none''');
 end
 
+% setting default thresholding parameters
+if ~isfield(EXP.thresh,'alpha'),    EXP.thresh.alpha=0.05;  end
+if ~isfield(EXP.thresh,'extent'),   EXP.thresh.extent=0;    end
+if ~isfield(EXP.thresh,'override'), EXP.thresh.override=0;  end
+if ~isfield(EXP.thresh,'clusterInitAlpha'),  EXP.thresh.clusterInitAlpha = 0.001; end
+if ~isfield(EXP.thresh,'clusterInitExtent'), EXP.thresh.clusterInitExtent = 10;   end
+
+
+% read SPM.mat to find numbers of sessions (NumSess), conditions (NumCond), and
+% contrasts (NumCntrst)
 load([EXP.dir_glm,'/SPM.mat']);
 NumSess = size(SPM.xY.VY,2);
 NumCond = size(SPM.xX.X,2)/NumSess-7;
 NumCntrst = EXP.NumCntrst;
 
+% set title texts
 if ~isfield(EXP,'titlestr')
   if NumCntrst == 2
     EXP.titlestr={'positive','negative'};
@@ -106,11 +97,11 @@ if ~isfield(EXP,'titlestr')
   end
 end
 
+% find structure image for orthogonal slices
 if ~isfield(EXP,'fname_struct')
   fsldir=getenv('FSLDIR');
   EXP.fname_struct = fullfile(fsldir,'data','standard','MNI152_T1_1mm.nii.gz');
 end
-
 [~,name1,ext1]=fileparts(EXP.fname_struct);
 if strcmp(ext1,'.gz')
   if ~exist(['/tmp/',name1],'file')
@@ -121,22 +112,25 @@ if strcmp(ext1,'.gz')
   ls(EXP.fname_struct)
 end
 
+%% Now create result reports
+
+spm('defaults','fmri');
+spm_jobman('initcfg');
 EXP.minp=zeros(1,numel(EXP.titlestr));
 TotalNC=0;
-for cntrst=1:numel(EXP.titlestr)
+for cntrst=1:numel(EXP.titlestr) % for each contrast
   matlabbatch={};
   matlabbatch{1}.spm.stats.results.spmmat = {[EXP.dir_glm,'/SPM.mat']};
   matlabbatch{1}.spm.stats.results.conspec(1).contrasts = cntrst;
   if method == 3
     matlabbatch{1}.spm.stats.results.conspec(1).threshdesc = 'none';
-    matlabbatch{1}.spm.stats.results.conspec(1).thresh = EXP.thresh.clusterInitAlpha;% 0.001;
-    matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thresh.clusterInitExtent; %10;
+    matlabbatch{1}.spm.stats.results.conspec(1).thresh = EXP.thresh.clusterInitAlpha; 
+    matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thresh.clusterInitExtent;
   else
     matlabbatch{1}.spm.stats.results.conspec(1).threshdesc = EXP.thresh.desc;
     matlabbatch{1}.spm.stats.results.conspec(1).thresh = EXP.thresh.alpha;
     matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thresh.extent;
   end
-  % let's just use GM mask (instead of compcor..?)
   matlabbatch{1}.spm.stats.results.conspec(1).mask = struct('contrasts', {}, 'thresh', {}, 'mtype', {});
   matlabbatch{1}.spm.stats.results.conspec(1).titlestr = EXP.titlestr{cntrst};
   matlabbatch{1}.spm.stats.results.units = 1;
@@ -165,7 +159,8 @@ for cntrst=1:numel(EXP.titlestr)
   
   % result table printing
   matlabbatch{1}.spm.stats.results.print = ~~EXP.print;
-  spm_jobman('initcfg');
+  
+  %% Result Reports with any given threshold
   spm_jobman('run', matlabbatch);
   
   
@@ -270,7 +265,7 @@ for cntrst=1:numel(EXP.titlestr)
     warning(['Too many clusters, only ',num2str(showlessNC),' clusters are visualized']);
     NC=showlessNC;
   end
-  if NC  % number of clusters
+  if NC % if any cluster exists
     for ci=1:NC
       spm_sections(xSPM,hReg,EXP.fname_struct);
       spm_orthviews('reposition',COORDS{ci});
@@ -341,10 +336,10 @@ for cntrst=1:numel(EXP.titlestr)
           STRC.strc.name, STRC.strc.prob); %, ...
         fclose(fid);
       end
-    end
+    end % of each cluster
     TotalNC=TotalNC+NC;
-  end
-end
+  end % if any cluster exists
+end % of each contrast
 
 %% copy 'significant' results to dir_sum
 if TotalNC && isfield(EXP,'dir_sum')
