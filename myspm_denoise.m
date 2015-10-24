@@ -1,7 +1,11 @@
 function EXP = myspm_denoise(EXP)
 % EXP = myspm_denoise(EXP)
 %
+% EXP requires a lot of things:
+%
 % (cc) 2015, sgKIM.
+
+% [TDOO] topological measures? degree map? efficiency boxplot?
 
 % 0. set parameters
 path0=pwd;
@@ -13,7 +17,7 @@ end
 hdr = spm_dicom_headers(EXP.fname_dcm);
 TR_sec = hdr{1}.RepetitionTime/1000;
 if ~isfield(EXP,'bpf2')
-  EXP.bpf2 = [0.01 0.1]; 
+  EXP.bpf2 = [0.009, 0.08];
   % or [0.009, 0.08] ?? really matters?
 end
 FilterBand = EXP.bpf2;
@@ -69,6 +73,8 @@ for n=1:numel(subjID)
   subjid = subjID{n};
   path1=[fullfile(EXP.dir_base,subjid),'/'];
   cd(path1);
+  path2=[fullfile(EXP.dir_base,subjid),'/fig/'];
+  [~,~]=mkdir(path2);
   
   EXP.fname_epi = fullfile(EXP.dir_base, subjid, EXP.name_epi);
   nii = load_untouch_nii(EXP.fname_epi);
@@ -78,7 +84,13 @@ for n=1:numel(subjID)
   cc  = load([path1,EXP.name_cc]); % text file
   load([path1,EXP.name_art],'R');
   art = R(:,1:end-7);
-  rp  = R(:,end-6:end);
+  if isfield(EXP,'drdt')&&EXP.drdt==1
+    % 12 parameters [NO BETTER THAN (6+1)!!!]
+    rp = [R(:,end-6:end-1), [zeros(1,6); diff(R(:,end-6:end-1))]];
+  else
+    % 6+1 parameters
+    rp  = R(:,end-6:end); % already pair-wise movement is there!
+  end
   clear R
   gs  = load([path1,'cc_gm',tprob{1},'.txt']);
   
@@ -196,7 +208,8 @@ for n=1:numel(subjID)
     if i==4, xlabel('TR'); end
     if i==2, ylabel(['Subsampled voxels with GM>',tprob{1}]); end
     
-    subplot(6,7,7+7*i+7);     imagesc(zscore(M));
+    subplot(6,7,7+7*i+7);     
+    imagesc(zscore(M));
     set(gca,'fontsize',10)
     title(Mdesc{i})
     R{i+1}=corr(yres+eps);
@@ -206,10 +219,11 @@ for n=1:numel(subjID)
   
   colormap(sgcolormap('CKM'));
   name_figure='_timeseries.png';
-  screen2png([path1,'resy',output_suffix,name_figure]);
+  screen2png([path2,'resy',output_suffix,name_figure]);
   close(hf);
   if isfield(EXP,'dir_figure')
-    copyfile([path1,'resy',output_suffix,name_figure], ...
+    [~,~]=mkdir(EXP.dir_figure);
+    copyfile([path2,'resy',output_suffix,name_figure], ...
       [EXP.dir_figure,'/resy',output_suffix,name_figure(1:end-4),'_',subjid,'.png']);
   end
   if isfield(EXP,'plotuntil')&&EXP.plotuntil==1
@@ -217,8 +231,7 @@ for n=1:numel(subjID)
   end
   
   %% plot#2: distribution
-  hf=figure('position',[1972          33         933        1061]);
-  %subplot(5,3,[1,2, 4,5]);
+  hf=figure('position',[1972 33 933 1061]);
   subplot(5,3,[1,2]);
   estker=zeros(5,256);
   Momenta=zeros(5,4);
@@ -244,7 +257,6 @@ for n=1:numel(subjID)
   xlabel('Pearson correlation coefficient');ylabel({'estimated','kernel density'})
   
   tag=tag2;
-  %panelk=[7,8 10,11];
   panelk=[4 7 10 13];
   MomentumDesc={'mean','variance','skewness','kurtosis'};
   for k=2:4
@@ -269,26 +281,19 @@ for n=1:numel(subjID)
   xyz=ijk2xyz(ijk,gm);
   D=pdist(xyz,'euclidean');
   hold on;
-%  tagb={};
   paneli=[5 8 11 14];
   cmapnames={'WG','WB','WM','WC'};
   for i=1:4
     subplot(5,3,paneli(i))
-    %scatter(D,V{i+1}-V{i},1,[colororder(i+1),'.']);
     dr = V{i+1}-V{i};
     jhist(D,dr,[80 80]);
-    %scatter(D,dr,1,[colororder(i+1),'.']);
     [B,~,~,~,stats] = regress(dr,[D', D'*0+1]);
     sumstat.slope(i+1)=B(1);
-    %tagb{i}=['b=',num2str(B(1),2)];
     hold on;
     plot([0:150], B(2)+B(1)*[0:150],'color','w')
-    %ylim0=ylim;
     ylim0=[-max(abs(ylim)), max(abs(ylim))];
     text(5,ylim0(2)*0.8,['b= ',num2str(B(1),2),', p=',num2str(stats(3))]);
     text(5,ylim0(1)*0.8,['R^2= ',num2str(stats(1))]);   
-    
-    %axis([0 max(D) ylim0(1) ylim(2)]); 
     xlim([0 max(D)]); ylim(ylim0);
     xlabel('Euclidean distance(mm)'); 
     ylabel({'change of corr',['[',tag2{i+1},'] vs. [',tag2{i},']']});
@@ -296,7 +301,6 @@ for n=1:numel(subjID)
     colormap(sgcolormap(cmapnames{i}));
     freezeColors;
   end
-  %legend(tagb,'location','EastOutside')
   tag=tag2;
   for i=1:5
     subplot(5,3,i*3)
@@ -314,15 +318,14 @@ for n=1:numel(subjID)
   
   % save summary file
   fname_sum=[path1,'resy',output_suffix,'.mat'];
-  %disp(['> saving summary stats in: ',fname_sum]);
   save(fname_sum, 'sumstat');
 
   % save figure
   name_figure='_corrdist.png';
-  screen2png([path1,'resy',output_suffix,name_figure]);
+  screen2png([path2,'resy',output_suffix,name_figure]);
   close(hf);
   if isfield(EXP,'dir_figure')
-    copyfile([path1,'resy',output_suffix,name_figure],...
+    copyfile([path2,'resy',output_suffix,name_figure],...
       [EXP.dir_figure,'/resy',output_suffix,name_figure(1:end-4),'_',subjid,'.png']);
   end
   
@@ -371,7 +374,6 @@ for n=1:numel(subjID)
     if i==1, text(d(2)*0.3,d(1)*0.95,'FWHM=1.5 pixels', 'color','w', 'fontsize',12); end
     text(d(1)*0.07, d(2)*0.07, 'R','color','w','fontsize',12)
 
-    
     % and z-scored timeseries
     h=axespos(ax2,(i-1)*2+1);
     imagesc(zscore(crrmap.yres(:,crrmap.ind_gm))');
@@ -379,7 +381,8 @@ for n=1:numel(subjID)
     set(gca,'xcolor','w','ycolor','w')
     tag=tag1;
     title(tag{i},'color','w','fontsize',14,'interp','none')
-    if i==3, ylabel(['GM>',tprob{1},' voxles in the slice'],'color','w','fontsize',14); end
+    if i==3, ylabel(['GM>',tprob{1},' voxles in the slice'], ...
+      'color','w','fontsize',14); end
     if i==5
       set(gca,'xtick',[]);
       hxlabel=xlabel('TR','color','w','fontsize',14);
@@ -409,10 +412,10 @@ for n=1:numel(subjID)
   
   colormap(sgcolormap('CKM'));
   name_figure='_corrmap.png';
-  screen2png([path1,'resy',output_suffix,name_figure]);
+  screen2png([path2,'resy',output_suffix,name_figure]);
   close(hf);
   if isfield(EXP,'dir_figure')
-    copyfile([path1,'resy',output_suffix,name_figure],...
+    copyfile([path2,'resy',output_suffix,name_figure],...
       [EXP.dir_figure,'/resy',output_suffix,name_figure(1:end-4),'_',subjid,'.png']);
   end
   
@@ -420,7 +423,7 @@ for n=1:numel(subjID)
     continue
   end
   
-  %% plot#4
+  %% plot#4. sample timeseries (combine with plot#3?)
   if isfield(EXP,'sampletimeseries');
     % 1. find voxel indices for precuneous, med-prefrontal, precentral, 
     aparc = load_untouch_nii(fname_aparc);
@@ -507,26 +510,25 @@ for n=1:numel(subjID)
       text(d(1)*0.07, d(2)*0.07, 'R','color','w','fontsize',12)
       
       % individual timeseries
-      xlim1 = min(150, size(crrmap.yres,1));
+      xlim1=1;      xlim2=min(150, size(crrmap.yres,1));
+      if isfield(EXP,'xlim')
+        xlim1=EXP.xlim(1);    xlim2=EXP.xlim(2);
+      end
       %xlim1 = size(crrmap.yres,1);
       for l=1:numel(roi)
-        %axes('position',[0.275 (5-i)/5+1/5*((3-l)/3)+(1/15)*0.2 0.7 1/15*0.7]);
         h=axespos(ax2,(i-1)*4+l+1);
-        plot(crrmap.yres(1:xlim1, roi(l).ind),'color',colororder(l))
-        xlim([1, xlim1])
+        plot(crrmap.yres(:, roi(l).ind),'color',colororder(l))
+        xlim([xlim1 xlim2])
         set(gca,'color','k','xcolor','w','ycolor','w');
         hold on;
         ylim1=ylim;
-        text(5,ylim1(2)-diff(ylim1)*0.07, roiname{l}, 'color',colororder(l))
+        text(xlim1+5,ylim1(2)-diff(ylim1)*0.07, roiname{l}, 'color',colororder(l))
         if l==1
           title(tag{i},'fontsize',15,'color','w','interp','none');
         end
         grid on;
-        if i==1 && l==1
-          xlabel('TR','fontsize',9); %ylabel('Image intensity','fontsize',9);
-        end
+        if i==1 && l==1,  xlabel('TR','fontsize',9); end
       end
- 
     end
     
     h=axes('position',[0 0 0.25 0.02]);
@@ -538,10 +540,10 @@ for n=1:numel(subjID)
     
     colormap(sgcolormap('CKM'));
     name_figure='_corrmap_inditimeseries.png';
-    screen2png([path1,'resy',output_suffix,name_figure]);
+    screen2png([path2,'resy',output_suffix,name_figure]);
     close(hf);
     if isfield(EXP,'dir_figure')
-      copyfile([path1,'resy',output_suffix,name_figure],...
+      copyfile([path2,'resy',output_suffix,name_figure],...
         [EXP.dir_figure,'/resy',output_suffix,name_figure(1:end-4),'_',subjid,'.png']);
     end
   end
@@ -561,7 +563,7 @@ for n=1:numel(subjID)
     yres = single(myy_filter(y-M*((M'*M)\M'*y), TR_sec, FilterBand));
     nii.img=reshape(yres',d); %(don't forget to enter space x time, instead of time x space
     nii.hdr.dime.datatype=16; %float32
-    if EXP.num_pcs ~= 16
+    if EXP.num_pcs ~= 16 % it'd be actually crazy to go further
       pcsnum=num2str(EXP.num_pcs);
     else
       pcsnum='';
@@ -569,6 +571,16 @@ for n=1:numel(subjID)
     fname_out=[path1,'fr',pcsnum,EXP.name_epi];
     disp(['> saving residual in ',fname_out,'..']);
     save_untouch_nii(nii, fname_out);
+    
+    % and (liberal) mask it for coregistration
+    setenv('FSLOUTPUTTYPE','NIFTI');
+    name1=['mean',EXP.name_epi];
+    myunix(['bet ',path1,name1,' ',path1,name1,'_brain -R -S -f 0.3']);
+    myunix(['fslmaths ',path1,name1,'_brain -add ',path1,'oBrain.nii -bin ',path1,'epimask.nii']);
+    unix(['rm -f ',path1,name1,'_brain*']);
+    name2=['fr',EXP.name_epi];
+    myunix(['fslmaths ',path1,name2,' -mas ',path1,'epimask ',path1,'m',name2]);
+    
   end
 end
 cd(path0);
@@ -579,7 +591,7 @@ function [F,ker] = gaussblur(f,FWHM)
 %function F = gaussblur(f,FWHM)
 %
 % f : input 1D series, 2D image or 3D volume
-% FWHM: filtersize in sampling point (pixel/voxel).
+% FWHM: filter size in sampling point (pixel/voxel).
 %
 % (c) Moo K. Chung, July 2003. March 2004.
 % (cc) sgKIM, 2011, 2015

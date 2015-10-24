@@ -20,6 +20,7 @@ function EXP=myspm_fmriglm (EXP)
 %  .dir_glm      'Nx1' directory to save SPM results
 % or
 %  .dir_base     'Nx1' directory for a subdirectory that has SPM.mat
+% (.dir_prefix)
 %
 % - for fMRI design matrix
 %  .TR
@@ -84,10 +85,12 @@ if isfield(EXP,'model')
 else
   model_desc = EXP.model_desc;
 end
+if ~isfield(EXP,'dir_prefix'), EXP.dir_prefix=''; end
+
 if ~isfield(EXP,'dir_base')
-  EXP.dir_glm = [pwd,'/glm_',model_desc];
+  EXP.dir_glm = [pwd,'/glm_',EXP.dir_prefix,model_desc];
 else
-  EXP.dir_glm = [EXP.dir_base,'/glm_',model_desc];
+  EXP.dir_glm = [EXP.dir_base,'/glm_',EXP.dir_prefix,model_desc];
 end
 [~,~]=mkdir(EXP.dir_glm);
 

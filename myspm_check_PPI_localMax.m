@@ -20,25 +20,26 @@ for i = 1 : NumSubj
   fname_func = fullfile(dir0,subjid,EXP.dir_glm,EXP.name_func);
   hdr_strc = load_nii_hdr(fname_strc);
   hdr_func = load_nii_hdr(fname_func);
-  if sum(hdr_strc.dime.dim(2:4) == hdr_func.dime.dim(2:4)) ~= 3
+  
+  if sum(hdr_strc.dime.dim(2:4) == hdr_func.dime.dim(2:4)) ~= 3 % when dimensions are not matched
     [~,b,c] = fileparts(EXP.name_func);
     fname_strc_in_func = [dir0,'/',subjid,'/',b,'_in_func',c];
     if ~exist(fname_strc_in_func,'file')
       unix(['mri_convert --like ',fname_func,' ',fname_strc,' ',fname_strc_in_func]);
     end
-    fname_strc = fname_strc_in_func;
+    fname_strc = fname_strc_in_func; % just resample functional images for visualization
   end
   base = load_nii(fname_strc);
   func = load_nii(fname_func);
-  if ~isfield(EXP,'dir_ppi')
+  if ~isfield(EXP,'dir_ppi') % only for Physiological voi check
     EXP.dir_ppi = EXP.dir_glm;
   end
   load(fullfile(dir0,subjid,EXP.dir_ppi,'PPI.mat'),'PPI');
   
   d = size(base.img);
-  coord_xyz =  PPI.xY.xyz';
+  coord_xyz =  PPI.xY.xyz'; % read from PPI.mat
   coord_ijk =  round(xyz2ijk(coord_xyz,fname_func));
-  coord_ijk0 = round(xyz2ijk(EXP.voi.coord,fname_func));
+  coord_ijk0 = round(xyz2ijk(EXP.voi.coord,fname_func)); % what I entered
   
   axespos(ax,i); hold on;
   img1 = base.img(:,:,coord_ijk(3))';
@@ -50,9 +51,13 @@ for i = 1 : NumSubj
   if isfield(EXP,'isneg')&&EXP.isneg, cmap=sgcolormap('GRAY-BLUE'); end
   colormap(cmap);
   caxis([0 2])
+  
+  % mark the original coordinate
   line([d(1)-coord_ijk0(1);d(1)-coord_ijk0(1)],[0;d(2)+1],'color','w');
   line([0;d(1)+1], [coord_ijk0(2);coord_ijk0(2)],'color','w');
-  if sum(coord_ijk0==coord_ijk)<3,
+  
+  % if different, mark the shifted coodinate
+  if sum(coord_ijk0==coord_ijk)<3, % if the coordinates are not identical
     vx=d(1)-coord_ijk(1); vy=coord_ijk(2); vr=EXP.voi.radius;
     rectangle('position',[vx-vr, vy-vr, vr*2, vr*2],'curvature',[1 1],'edgecolor','k');
   end

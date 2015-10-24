@@ -12,7 +12,9 @@ function EXP = myy_compcor(EXP)
 % (.param_mask) [gm_prob_thres, wm/csf_prob_thres]
 % (.num_pcs) 16 (default)
 %
-% asumming processes are done by myspm_fmriprep12.m
+% asumming processes are done by myspm_fmriprep12_func.m
+%
+% (cc) 2015, sgKIM.   solleo@gmail.com   https://ggooo.wordpress.com
 
 path0=pwd;
 if ~isfield(EXP,'prefix'), EXP.prefix='o';end
@@ -79,7 +81,7 @@ for i=1:numel(subjID)
       [EXP.dir_figure,'/cc_plot',output_suffix,'_',subjid,'.png']);
     if exist([path1,'/cc_eigval',output_suffix,'.png'],'file')
     copyfile([path1,'/cc_eigval',output_suffix,'.png'], ...
-      [EXP.dir_figure,'/cc_eigval_n16d1v1_',subjid,'.png']);
+      [EXP.dir_figure,'/cc_eigval',output_suffix,'_',subjid,'.png']);
     end
   end
   
@@ -96,7 +98,7 @@ function EXP = y_CompCor_PC(EXP)
 %   Nuisance_MaskFilename   -  The Mask file for nuisance area, e.g., the combined mask of WM and CSF
 %                           -  Or can be cells, e.g., {'CSFMask','WMMask'}
 %	OutputName  	-	Output filename
-%   PCNum - The number of PCs to be output
+%   PCNum - The number of PCs to be output    ,
 %   IsNeedDetrend   -   0: Dot not detrend; 1: Use Matlab's detrend
 %                   -   DEFAULT: 1 -- Detrend (demean) and variance normalization will be performed before PCA, as done in Behzadi, Y., Restom, K., Liau, J., Liu, T.T., 2007. A component based noise correction method (CompCor) for BOLD and perfusion based fMRI. Neuroimage 37, 90-101.
 %   Band            -   Temporal filter band: matlab's ideal filter e.g. [0.01 0.08]. Default: not doing filtering
@@ -134,7 +136,7 @@ end
 
 fprintf('\nExtracting principle components for CompCor Correction:\t"%s"', ADataDir);
 [AllVolume,VoxelSize,theImgFileList, Header] = y_ReadAll(ADataDir);
-[nDim1 nDim2 nDim3 nDimTimePoints]=size(AllVolume);
+[nDim1,nDim2,nDim3,nDimTimePoints]=size(AllVolume);
 BrainSize = [nDim1 nDim2 nDim3];
 
 AllVolume=reshape(AllVolume,[],nDimTimePoints)';
@@ -167,7 +169,7 @@ AllVolume=AllVolume(:,find(MaskDataOneDim));
 if ~(exist('IsNeedDetrend','var') && IsNeedDetrend==0)
   %DEFAULT: 1 -- Detrend (demean) and variance normalization will be performed before PCA, as done in Behzadi, Y., Restom, K., Liau, J., Liu, T.T., 2007. A component based noise correction method (CompCor) for BOLD and perfusion based fMRI. Neuroimage 37, 90-101.
   fprintf('\n# Detrending...');
-  SegmentLength = ceil(size(AllVolume,2) / CUTNUMBER);
+  SegmentLength = ceil(size(AllVolume,2) / CUTNUMBER); % spatial segment (columns of AllVolume)
   for iCut=1:CUTNUMBER
     if iCut~=CUTNUMBER
       Segment = (iCut-1)*SegmentLength+1 : iCut*SegmentLength;
@@ -209,14 +211,27 @@ if PCNum
   eigval = diag(S);
   xvar=cumsum(eigval)/sum(eigval)*100;
   hf=figure('position',[2237         234         560         634]);
-  subplot(211)
+  subplot(311)
   plot(eigval,'b'); xlabel('Order of eigenvalues'); ylabel('Eigenvalue')
   ylim0=ylim; hold on; line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
   title([num2str(eigval(PCNum)),'@',num2str(PCNum),'-th PC'])
-  subplot(212);
+  xlim([1 50]);
+  
+  % "Scree plot" method
+  subplot(312)
+  ddy=gaussblur([0; 0; diff(diff(eigval))],3);
+  plot(ddy(1:50),'b'); xlabel('Order of eigenvalues'); ylabel({'Smoothed (fwhm=3)','change of slope'});
+  ylim0=ylim; hold on; line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
+  %ylim(10*[-1 1]*abs(ddy(PCNum)))
+  title([num2str(eigval(PCNum)),'@',num2str(PCNum),'-th PC'])
+  xlim([1 50]);
+  
+  subplot(313);
   plot(xvar,'b'); xlabel('Order of eigenvalues'); ylabel('Cumulative expalined variance(%)')
   ylim0=ylim; hold on; line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
   title([num2str(xvar(PCNum)),'% with ',num2str(PCNum),'PCs',])
+  xlim([1 50]);
+  
   screen2png(['cc_eigval',output_suffix,'.png']);
   close(hf);
   

@@ -6,6 +6,9 @@ function EXP = myspm_deform(EXP)
 % -for single subject:
 %  .fname_moving     fullpath
 %  .fname_def
+% (.prefix
+% (.interp) [1x1] default=1 (linear)
+% (.vox_mm) [1x1] default=2
 %
 % -for multiple subjects:
 %  .subjID
@@ -89,8 +92,8 @@ end
 
 % applying deformation to 'other' image?
 normalise=[];
-normalise.write.subj.def(1) = {EXP.fname_def};
-normalise.write.subj.resample(1) = fnames;
+normalise.write.subj.def = {EXP.fname_def};
+normalise.write.subj.resample = fnames;
 normalise.write.woptions.bb = [-78 -112 -70; 78 76 85];
 normalise.write.woptions.vox = [1 1 1]*EXP.vox_mm;
 normalise.write.woptions.interp = EXP.interp; 

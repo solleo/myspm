@@ -45,12 +45,12 @@ end
 if ~isfield(EXP,'fname_prefix')
   prefix='';
 else
-  prefix = EXP.fname_prefix;
+  prefix = [EXP.fname_prefix,'_'];
 end
 
 % set figure filename
 if ~isfield(EXP,'fname_spm_fig')
-  EXP.fname_spm_fig = fullfile(EXP.dir_glm,[prefix,'sigclus_spm_',today,'.ps']);
+  EXP.fname_spm_fig = fullfile(EXP.dir_glm,[prefix,EXP.model_desc,'_sigclus_spm_',today,'.ps']);
   EXP.fname_spm_fig = strrep(EXP.fname_spm_fig,'>','-gt-');
   EXP.fname_spm_fig = strrep(EXP.fname_spm_fig,'<','-lt-');
 end
@@ -131,7 +131,12 @@ for cntrst=1:numel(EXP.titlestr) % for each contrast
     matlabbatch{1}.spm.stats.results.conspec(1).thresh = EXP.thresh.alpha;
     matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thresh.extent;
   end
-  matlabbatch{1}.spm.stats.results.conspec(1).mask = struct('contrasts', {}, 'thresh', {}, 'mtype', {});
+  if ~isfield(EXP,'masking')
+    matlabbatch{1}.spm.stats.results.conspec(1).mask = struct('contrasts', {}, 'thresh', {}, 'mtype', {});
+  else
+    matlabbatch{1}.spm.stats.results.conspec(1).mask.image.name = {[EXP.masking,',1']};
+    matlabbatch{1}.spm.stats.results.conspec(1).mask.image.mtype = 0;
+  end
   matlabbatch{1}.spm.stats.results.conspec(1).titlestr = EXP.titlestr{cntrst};
   matlabbatch{1}.spm.stats.results.units = 1;
   
@@ -347,11 +352,14 @@ if TotalNC && isfield(EXP,'dir_sum')
   [~,~]=mkdir(EXP.dir_sum);
   today=datestr(now,'yyyymmmdd');
   src=fullfile(EXP.dir_glm,['spm_',today,'.ps']);   % whole brain table?
-  trg=[EXP.dir_sum,'/spm_',today,'_',name1,'.ps'];
+  if ~isfield(EXP,'prefix_sum'), EXP.prefix_sum=''; end
+  trg=[EXP.dir_sum,'/',EXP.prefix_sum,'_spm_',today,'_',name1,'.ps'];
   system(['cp ',src,' ',trg]);
+  
   src=EXP.fname_spm_fig;
   [~,b,c] = fileparts(src);
-  trg=[EXP.dir_sum,'/',b,c];
+  if ~isfield(EXP,'prefix_sum'), EXP.prefix_sum=''; end
+  trg=[EXP.dir_sum,'/',EXP.prefix_sum,'_',b,c];
   system(['cp ',src,' ',trg]);
   
   fname_sumtab = [EXP.dir_sum,'/summary.csv'];

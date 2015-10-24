@@ -10,6 +10,7 @@ function EXP=myspm_glm (EXP)
 %  .dir_glm      'Nx1' directory to save SPM results
 % or
 %  .dir_base     'Nx1' directory for a subdirectory that has SPM.mat
+% (.dir_prefix)
 %
 % -input files
 %  .subjID       [NxM] or {Nx1}
@@ -53,21 +54,25 @@ function EXP=myspm_glm (EXP)
 % Results:
 %
 %
-% (cc) 2015. sgKIM.   solleo@gmail.com   https://ggooo.wordpress.com/
+% (cc) 2015. sgKIM.  mailto://solleo@gmail.com  https://ggooo.wordpress.com/
+
+if nargin<1, help myspm_glm; return; end
 
 if ~isfield(EXP,'design')
   design='mreg';
 else
   design = EXP.design;
 end
-
 spm('Defaults','fmri')
 
 matlabbatch={};
 matlabbatch{1}.spm.stats.factorial_design.dir = {};
-if isfield(EXP,'files_query') % this could be bad
+% check data
+if isfield(EXP,'fnames')
+  fnames = EXP.fnames;
+elseif isfield(EXP,'files_query')
+  EXP.subjID=fsss_subjID(EXP.subjID);
   fnames=cell(numel(EXP.subjID),1); % this MUST be <Nx1>
-  %if isfield(EXP,'subjID')
   idx = strfind(EXP.files_query,'${subj}');
   prefix = EXP.files_query(1:idx-1);
   suffix = EXP.files_query(idx+7:end);
@@ -75,34 +80,17 @@ if isfield(EXP,'files_query') % this could be bad
     [~,res] = mydir([prefix,EXP.subjID{n},suffix]);
     fnames{n,1}=[res{1},',1'];
   end
-  %   else
-  %     [~,fnames] = mydir(EXP.files_query);
-  %     if ~isempty(fnames)
-  %       for n=1:numel(fnames)
-  %         fnames{n,1} = [fnames{n,1},',1'];
-  %       end
-  %     else
-  %       txt = ls(EXP.files_query);
-  %       idx = strfind(txt,sprintf('\n'));
-  %       idx = [0 idx];
-  %       for n=1:numel(idx)-1
-  %         fnames{n,1} = [txt(idx(n)+1:idx(n+1)-1),',1'];
-  %       end
-  %     end
-end
 elseif isfield(EXP,'filenames')
-  for n=1:numel(EXP.filenames)
-    fnames{n,1} = [EXP.filenames{n},',1'];
+  for n=1:size(EXP.filenames,1)
+    fnames{n,1} = [EXP.filenames{n,1},',1'];
   end
-  else
-    error('You need to specify inputs in EXP.files_query or EXP.filenames');
+else
+  error('You need to specify inputs in EXP.files_query or EXP.filenames');
 end
 
 Nsubj=numel(fnames);
-for n=1:Nsubj
-  ls(fnames{n,1}(1:end-2));
-end
 
+% check second scans for paired t-test
 if strcmpi(design,'pt')
   if isfield(EXP,'files_query2')
     files = dir(EXP.files_query2);
@@ -110,9 +98,9 @@ if strcmpi(design,'pt')
     for n=1:numel(files)
       fnames{n,2} = [mypath,'/',files(n).name,',1'];
     end
-  elseif isfield(EXP,'filenames2')
-    for n=1:numel(EXP.filenames2)
-      fnames{n,2} = [EXP.filenames{n},',1'];
+  elseif size(EXP.filenames,2)
+    for n=1:size(EXP.filenames,1)
+      fnames{n,2} = [EXP.filenames{n,2},',1'];
     end
   else
     error('You need to specify inputs in EXP.files_queryend or EXP.filenames');
@@ -175,6 +163,21 @@ matlabbatch{1}.spm.stats.factorial_design.masking.im = 1;
 if ~isfield(EXP,'masking')
   matlabbatch{1}.spm.stats.factorial_design.masking.em = {''};
 else
+  if isnumeric(EXP.masking)
+    %EXP.masking ='/scr/vatikan1/skim/matlab/spm12/tpm/mask_ICV.nii';
+     mask_mni = [spm('dir'),'/tpm/gray',num2str(EXP.masking),'.nii'];
+%     %if ~exist(mask_mni,'file')
+      nii = load_untouch_nii([spm('dir'),'/tpm/TPM.nii']);
+      nii.img = double(nii.img(:,:,:,1)>EXP.masking);
+      nii.hdr.dime.datatype=2;
+      nii.hdr.dime.dim(5)=1;
+      save_untouch_nii(nii,mask_mni);
+%     %end
+%     [path1,~,~] = fileparts(fnames{1,1}(1:end-2));
+%     mask_indi = [path1,'/ogray_',num2str(EXP.masking),'.nii'];
+%     unix(['mri_convert --like ',fnames{1,1}(1:end-2),' ',mask_mni,' ',mask_indi]);
+     EXP.masking = mask_mni;
+  end
   matlabbatch{1}.spm.stats.factorial_design.masking.em = {EXP.masking};
 end
 

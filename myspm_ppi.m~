@@ -92,8 +92,7 @@ end
 %  neural response of Physiological vector (deconvoluted BOLD),
 %  and a product of them (ppi)
 NumCond = numel(EXP.ppi.cntrstVec);
-EXP.ppi.cntrstMtx = [1:NumCond; EXP.ppi.cntrstVec; ~~EXP.ppi.cntrstVec]';
-EXP.ppi.cntrstMtx(~EXP.ppi.cntrstMtx(:,2),2) = 1; % just in case..
+EXP.ppi.cntrstMtx=[1:NumCond; ones(1,NumCond) .* EXP.ppicn; EXP.ppi.cntrstVec]';
 
 dir_ppi = [EXP.dir_base,'/glm_PPI_',EXP.ppi.name];
 [~,~] = mkdir(dir_ppi);
@@ -110,7 +109,7 @@ if EXP.TR<6 && ~isfield(EXP,'noDeconv') % less than 6 seconds of time-lag in BOL
   if ~exist(EXP.fname_ppi,'file')
     save([dir_ppi,'/mb_ppi_deconv.mat']);
     spm_jobman('run',matlabbatch);
-    src=[EXP.dir_psy,'/PPI_',EXP.ppi.name,'.mat'];
+    src=[EXP.dir_voi,'/PPI_',EXP.ppi.name,'.mat'];
     movefile(src,EXP.fname_ppi);
   end
 else % just read psy (the design & contrast); read phy, and psyphy
