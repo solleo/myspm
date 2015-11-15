@@ -2,14 +2,19 @@ function EXP = myspm_ppi (EXP)
 % EXP = myspm_ppi (EXP)
 %
 % requires:
-% EXP.dir_glm
+% EXP
+% .dir_glm
+% .dir_voi
+% .dir_psy
 %
 % EXP
 %  .voi
 %   .name
 %   .coord
 %   .radius
-%   .fixed
+% or
+%   .local
+%   .cntrstVec
 %  .ppi
 %   .name
 %   .cntrstVec     % for parametric design: [0 0 2] means 3nd condition and 2nd parameter
@@ -27,15 +32,20 @@ function EXP = myspm_ppi (EXP)
 % (cc) 2015, sgKIM.  solleo@gmail.com  https://ggooo.wordpress.com
 
 %% 0. parsing & check inputs
+
+global overwrite; if isempty(overwrite), overwrite=0; end
 spm('Defaults','fmri');
 spm_jobman('initcfg');
 for n=1:numel(EXP.filenames)
+  if ~strcmp(EXP.filenames{n}(1),'/') % relative path?
+    EXP.filenames{n} = fullfile(EXP.dir_base, EXP.filenames{n});
+  end
   fnames{n,1} = [EXP.filenames{n},',1'];
 end
 try ls(fnames{n,1}(1:end-2));
 catch ME
   fnames
-  error('file not found');
+  error(['file ',fnames{n,1}(1:end-2),' not found']);
 end
 EXP.NumSess = numel(fnames);
 for j=1:EXP.NumSess
@@ -59,7 +69,7 @@ matlabbatch={};
 matlabbatch{1}.spm.util.voi.spmmat  = {[EXP.dir_voi,'/SPM.mat']};
 matlabbatch{1}.spm.util.voi.adjust  = 0;
 matlabbatch{1}.spm.util.voi.session = 1;
-matlabbatch{1}.spm.util.voi.name = [EXP.voi.name,'_r',num2str(EXP.voi.radius),'mm']; %'STG-left';
+matlabbatch{1}.spm.util.voi.name    = [EXP.voi.name,'_r',num2str(EXP.voi.radius),'mm']; %'STG-left';
 if isfield(EXP.voi,'local')
   matlabbatch{1}.spm.util.voi.roi{1}.spm.spmmat   = {[EXP.dir_voi,'/SPM.mat']};
   matlabbatch{1}.spm.util.voi.roi{1}.spm.contrast = EXP.voi.cntrstVec;
@@ -83,7 +93,7 @@ else
 end
 
 EXP.fname_voi=[EXP.dir_voi,'/VOI_',EXP.voi.name,'_r',num2str(EXP.voi.radius),'mm_1.mat'];
-if ~exist(EXP.fname_voi,'file') || isfield(EXP,'redovoi')
+if ~exist(EXP.fname_voi,'file') || isfield(EXP,'redovoi') || overwrite
   save([EXP.dir_voi,'/mb_voi_pca.mat']);
   spm_jobman('run',matlabbatch);
 end
@@ -91,11 +101,17 @@ end
 %% 2. compute Psychological vector,
 %  neural response of Physiological vector (deconvoluted BOLD),
 %  and a product of them (ppi)
-NumCond = numel(EXP.ppi.cntrstVec);
-EXP.ppi.cntrstMtx = [1:NumCond; EXP.ppi.cntrstVec; ~~EXP.ppi.cntrstVec]';
-EXP.ppi.cntrstMtx(~EXP.ppi.cntrstMtx(:,2),2) = 1; % just in case..
 
-dir_ppi = [EXP.dir_base,'/glm_PPI_',EXP.ppi.name];
+% first column: i in SPM.Sess.U(i)
+% second column: j in SPM.Sess.U(i).name{j}
+% third column: weight
+NumCond = numel(EXP.ppi.cntrstVec);
+EXP.ppi.cntrstMtx = [1:NumCond; ones(1,NumCond); EXP.ppi.cntrstVec;]';
+%EXP.ppi.cntrstMtx(~EXP.ppi.cntrstMtx(:,2),2) = 1; % just in case..
+
+if ~isfield(EXP,'dir_ppi')
+  dir_ppi = [EXP.dir_base,'/ppi_',EXP.ppi.name];
+end
 [~,~] = mkdir(dir_ppi);
 EXP.fname_ppi = [dir_ppi,'/PPI.mat'];
 
@@ -107,8 +123,8 @@ if EXP.TR<6 && ~isfield(EXP,'noDeconv') % less than 6 seconds of time-lag in BOL
   matlabbatch{1}.spm.stats.ppi.name = EXP.ppi.name; %'STG-LxBCFD';
   matlabbatch{1}.spm.stats.ppi.disp = 0; % not very informative
   spm_jobman('initcfg')
-  if ~exist(EXP.fname_ppi,'file')
-    save([dir_ppi,'/mb_ppi_deconv.mat']);
+  if ~exist(EXP.fname_ppi,'file') || overwrite
+    save([dir_ppi,'/mb_ppi_deconv.mat'],'matlabbatch');
     spm_jobman('run',matlabbatch);
     src=[EXP.dir_psy,'/PPI_',EXP.ppi.name,'.mat'];
     movefile(src,EXP.fname_ppi);
@@ -133,6 +149,8 @@ end
 
 %% 3. run fmri-glm with the PPI
 EXP.model_desc = ['PPI_',EXP.ppi.name];
+EXP.dir_glm = dir_ppi;
+EXP.dir_ppi = dir_ppi;
 EXP = myspm_fmriglm(EXP);
 
 end

@@ -40,7 +40,11 @@ matlabbatchs{1}.spm.spatial.smooth.data = fnames;
 matlabbatchs{1}.spm.spatial.smooth.fwhm = repmat(EXP.fwhm,[1,3]);
 matlabbatchs{1}.spm.spatial.smooth.dtype = 0;
 matlabbatchs{1}.spm.spatial.smooth.im = 0;
-prefix=['s',sprintf('%0.1f',EXP.fwhm)];
+if double(int64(EXP.fwhm)) == EXP.fwhm
+  prefix=['s',sprintf('%d',EXP.fwhm)];
+else
+  prefix=['s',sprintf('%0.1f',EXP.fwhm)];
+end
 matlabbatchs{1}.spm.spatial.smooth.prefix = prefix;
 
 need2run=0;

@@ -1,4 +1,4 @@
-function EXP=myspm_fmriglm (EXP)
+function EXP=myspm_fmriglm_scrub (EXP)
 % EXP=myspm_fmriglm (EXP)
 %
 % This script helps you to run GLMs for the 1st-level fMRI analysis using fMRI model
@@ -227,13 +227,23 @@ for j=1:EXP.NumSess
     sess(j).regress(NumReg+6+2).name = '|dr/dt|';
   end
   if isfield(EXP,'fname_cc');
-    pci=1;
+    ii=1;
     pc=dlmread(EXP.fname_cc);
     numpc=size(pc,2);
     for k=[1:numpc]+NumReg+6+2
-      sess(j).regress(k).name = ['CC#',num2str(pci)];
+      sess(j).regress(k).name = ['CC#',num2str(ii)];
       sess(j).regress(k).val  = pc(:,k-NumReg-6-2);
-      pci=pci+1;
+      ii=ii+1;
+    end
+  end
+  if isfield(EXP,'scrubbing')
+    scrub=dlmread(EXP.fname_sc);
+    numscrub=size(scrub,2);
+    ii=1;
+    for k=[1:numscrub]+NumReg+6+2+numpc
+      sess(j).regress(k).name = ['SC#',num2str(ii)];
+      sess(j).regress(k).val  = scrub(:,ii);
+      ii=ii+1;
     end
   end
   
@@ -269,11 +279,12 @@ for j=1:EXP.NumSess
     elseif ischar(EXP.masking)
       matlabbatch{1}.spm.stats.fmri_spec.mask = {EXP.masking};
     else
-      warning('Cannot determine an explicit mask. Using implicit mask instead..');
+      warning('Cannot determine an explicit mask. Implicit mask used instead');
     end
   else
     matlabbatch{1}.spm.stats.fmri_spec.mask = {''};
   end
+  matlabbatch{1}.spm.stats.fmri_spec.mask = {''};
   matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
   % this calls spm_fMRI_design, spm_fmri_spm_ui.
   
@@ -298,11 +309,9 @@ for j=1:EXP.NumSess
   end
   
   %% and set different contrast and printout all results
-  if ~isfield(EXP,'thresh')
   EXP.thresh.desc  = 'FWE';
   EXP.thresh.alpha = 0.05;
-  end
-  myspm_cntrst (EXP);
+  EXP = myspm_cntrst (EXP);
   
 end % for session
 

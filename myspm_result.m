@@ -7,11 +7,11 @@ function EXP = myspm_result(EXP)
 %
 % EXP requires:
 %  .dir_glm      'Nx1' directory to save SPM results
-% (.thresh.desc)    'Nx1'  'FWE','none', or 'cluster'(default)
-% (.thresh.alpha)   [1x1]  alpha level (default=0.05)
-% (.thresh.extent)  [1x1]  extent threshold of clusters in voxels (default=0)
-% (.thresh.clusterInitAlpha)   <1x1> cluster forming height threshold (default=0.001)
-% (.thresh.clusterInitExtent)  <1x1> cluster forming extent (in voxels) threshold (default=10)
+% (.thres.desc)    'Nx1'  'FWE','none', or 'cluster'(default)
+% (.thres.alpha)   [1x1]  alpha level (default=0.05)
+% (.thres.extent)  [1x1]  extent threshold of clusters in voxels (default=0)
+% (.thres.clusterInitAlpha)   <1x1> cluster forming height threshold (default=0.001)
+% (.thres.clusterInitExtent)  <1x1> cluster forming extent (in voxels) threshold (default=10)
 % (.fname_struct)   'Nx1' fullpath filename for background anatomical image for orthogonal slices
 %                         (defulat='$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz')
 % (.titlestr)       {1xNcont} Title text for SPM result report (default={'positive','negative'})
@@ -24,12 +24,14 @@ function EXP = myspm_result(EXP)
 %
 %
 % (cc) 2015, sgKIM. solleo@gmail.com, https://ggooo.wordpress.com/
+if nargin < 1,  EXP=[];  end
 
 %% Setting default parameters
 if ~isfield(EXP,'mygraph'), EXP.mygraph.y_name='y'; EXP.mygraph.x_name='x'; end
 if ~isfield(EXP,'append'),  EXP.append = 0;  end
 if ~isfield(EXP,'print'),   EXP.print = 1;   end
-if ~isfield(EXP,'thresh.desc'), EXP.thresh.desc='cluster';  end
+if ~isfield(EXP,'thres'),   EXP.thres.desc='cluster';  end
+if ~isfield(EXP,'dir_glm'), EXP.dir_glm=pwd; end
 
 % set table filename
 today = datestr(now,'yyyymmmdd');
@@ -39,13 +41,18 @@ tab_fmt = cell2fmt (fmt);
 if ~EXP.append && ~~EXP.print
   fid = fopen(fname_tab,'w');
   hdr_fmt = 'y-name\tx-name\teffect\tstat\tpeak\tpeakZ\tuncor_pval\tcor_pval(peak)\tcor_pval(clus)\tK_E\tMNI-x_mm\tMNI-y_mm\tMNI-z_mm\tpeak-strc-name\tpeak-strc-prob\n';
-  fprintf(fid, hdr_fmt, EXP.thresh.desc);
+  fprintf(fid, hdr_fmt, EXP.thres.desc);
   fclose(fid);
 end
 if ~isfield(EXP,'fname_prefix')
   prefix='';
 else
   prefix = [EXP.fname_prefix,'_'];
+end
+
+if ~isfield(EXP,'model_desc')
+  [~,b,~]=fileparts(EXP.dir_glm);
+  EXP.model_desc=b;
 end
 
 % set figure filename
@@ -61,29 +68,29 @@ if EXP.print && exist(EXP.fname_spm_fig,'file')
 end
 
 % setting a thresholding code
-if strcmpi('cluster',EXP.thresh.desc)
+if strcmpi('cluster',EXP.thres.desc)
   method=3;
-elseif strcmpi('FWE',EXP.thresh.desc)
+elseif strcmpi('FWE',EXP.thres.desc)
   method=1;
-elseif strcmpi('none',EXP.thresh.desc)
+elseif strcmpi('none',EXP.thres.desc)
   method=2;
 % else
-%   error('EXP.thresh.desc should be either ''cluster'', ''FWE'', ''none''');
+%   error('EXP.thres.desc should be either ''cluster'', ''FWE'', ''none''');
 end
 
 % setting default thresholding parameters
-if ~isfield(EXP.thresh,'alpha'),    EXP.thresh.alpha=0.05;  end
-if ~isfield(EXP.thresh,'extent'),   EXP.thresh.extent=0;    end
-if ~isfield(EXP.thresh,'override'), EXP.thresh.override=0;  end
-if ~isfield(EXP.thresh,'clusterInitAlpha'),  EXP.thresh.clusterInitAlpha = 0.001; end
-if ~isfield(EXP.thresh,'clusterInitExtent'), EXP.thresh.clusterInitExtent = 10;   end
-
+if ~isfield(EXP.thres,'alpha'),    EXP.thres.alpha=0.05;  end
+if ~isfield(EXP.thres,'extent'),   EXP.thres.extent=0;    end
+if ~isfield(EXP.thres,'override'), EXP.thres.override=0;  end
+if ~isfield(EXP.thres,'clusterInitAlpha'),  EXP.thres.clusterInitAlpha = 0.001; end
+if ~isfield(EXP.thres,'clusterInitExtent'), EXP.thres.clusterInitExtent = 10;   end
 
 % read SPM.mat to find numbers of sessions (NumSess), conditions (NumCond), and
 % contrasts (NumCntrst)
 load([EXP.dir_glm,'/SPM.mat']);
 NumSess = size(SPM.xY.VY,2);
 NumCond = size(SPM.xX.X,2)/NumSess-7;
+if ~isfield(EXP,'NumCntrst'), EXP.NumCntrst=2; end
 NumCntrst = EXP.NumCntrst;
 
 % set title texts
@@ -101,6 +108,9 @@ end
 if ~isfield(EXP,'fname_struct')
   fsldir=getenv('FSLDIR');
   EXP.fname_struct = fullfile(fsldir,'data','standard','MNI152_T1_1mm.nii.gz');
+end
+if strcmp(EXP.fname_struct,'conmus')
+  EXP.fname_struct = '/scr/vatikan4/conmus3/GLM/MNI152_T1_2.5mm_masked.nii';
 end
 [~,name1,ext1]=fileparts(EXP.fname_struct);
 if strcmp(ext1,'.gz')
@@ -124,19 +134,22 @@ for cntrst=1:numel(EXP.titlestr) % for each contrast
   matlabbatch{1}.spm.stats.results.conspec(1).contrasts = cntrst;
   if method == 3
     matlabbatch{1}.spm.stats.results.conspec(1).threshdesc = 'none';
-    matlabbatch{1}.spm.stats.results.conspec(1).thresh = EXP.thresh.clusterInitAlpha; 
-    matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thresh.clusterInitExtent;
+    matlabbatch{1}.spm.stats.results.conspec(1).thresh = EXP.thres.clusterInitAlpha; 
+    matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thres.clusterInitExtent;
   else
-    matlabbatch{1}.spm.stats.results.conspec(1).threshdesc = EXP.thresh.desc;
-    matlabbatch{1}.spm.stats.results.conspec(1).thresh = EXP.thresh.alpha;
-    matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thresh.extent;
+    matlabbatch{1}.spm.stats.results.conspec(1).threshdesc = EXP.thres.desc;
+    matlabbatch{1}.spm.stats.results.conspec(1).thresh = EXP.thres.alpha;
+    matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thres.extent;
   end
-  if ~isfield(EXP,'masking')
-    matlabbatch{1}.spm.stats.results.conspec(1).mask = struct('contrasts', {}, 'thresh', {}, 'mtype', {});
-  else
-    matlabbatch{1}.spm.stats.results.conspec(1).mask.image.name = {[EXP.masking,',1']};
-    matlabbatch{1}.spm.stats.results.conspec(1).mask.image.mtype = 0;
-  end
+  % don't know why but the batch mode in SPM8 takes only the other contrast
+  % for masking (but GUI takes mask image)
+%   if ~isfield(EXP,'masking')
+%     matlabbatch{1}.spm.stats.results.conspec(1).mask = struct('contrasts', {}, 'thresh', {}, 'mtype', {});
+%   else
+%     matlabbatch{1}.spm.stats.results.conspec(1).mask.image.name = {[EXP.masking,',1']};
+%     matlabbatch{1}.spm.stats.results.conspec(1).mask.image.mtype = 0;
+%   end
+  matlabbatch{1}.spm.stats.results.conspec(1).mask = struct('contrasts', {}, 'thresh', {}, 'mtype', {});
   matlabbatch{1}.spm.stats.results.conspec(1).titlestr = EXP.titlestr{cntrst};
   matlabbatch{1}.spm.stats.results.units = 1;
   
@@ -152,13 +165,13 @@ for cntrst=1:numel(EXP.titlestr) % for each contrast
     Npeaks=size(TabDat.dat,1);
     K=[];
     for pi=1:Npeaks
-      if (TabDat.dat{pi,3} < EXP.thresh.alpha)
+      if (TabDat.dat{pi,3} < EXP.thres.alpha)
         K=[K TabDat.dat{pi,5}];
       end
     end
     if K
-      EXP.thresh.clusextent(cntrst)=min(K);
-      matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thresh.clusextent(cntrst) -1;
+      EXP.thres.clusextent(cntrst)=min(K);
+      matlabbatch{1}.spm.stats.results.conspec(1).extent = EXP.thres.clusextent(cntrst) -1;
     end
   end
   
@@ -166,6 +179,7 @@ for cntrst=1:numel(EXP.titlestr) % for each contrast
   matlabbatch{1}.spm.stats.results.print = ~~EXP.print;
   
   %% Result Reports with any given threshold
+  save([EXP.dir_glm,'/result.mat'],'matlabbatch');
   spm_jobman('run', matlabbatch);
   
   
@@ -204,7 +218,7 @@ for cntrst=1:numel(EXP.titlestr) % for each contrast
         fprintf(fid, '\n');
       end
     end
-    if (TabDat.dat{pi,C(method)} < EXP.thresh.alpha)
+    if (TabDat.dat{pi,C(method)} < EXP.thres.alpha)
       COORDS=[COORDS TabDat.dat{pi,end}];
       PI=[PI pi];
     end
@@ -365,7 +379,7 @@ if TotalNC && isfield(EXP,'dir_sum')
   fname_sumtab = [EXP.dir_sum,'/summary.csv'];
   if ~exist(fname_sumtab,'file')
     fid = fopen(fname_sumtab,'w');
-    fprintf(fid,hdr_fmt, EXP.thresh.desc);
+    fprintf(fid,hdr_fmt, EXP.thres.desc);
     fclose(fid);
   end
   system(['tail -n +2 ',fname_tab,' > /tmp/tab2.csv']);

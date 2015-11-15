@@ -10,8 +10,8 @@ function y = myy_filter(y, TR, Band)
 % 20 segments(but why?)
 %
 % (cc) 2015, sgKIM.  solleo@gmail.com   https://ggooo.wordpress.com
-demean=0;
 
+demean=0;
 if numel(y) > 91*109*91*50
   CUTNUMBER = 20;
   % Filtering segmented for saving memory

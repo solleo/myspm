@@ -71,16 +71,16 @@ matlabbatch{1}.spm.spatial.coreg.estwrite.roptions.wrap = [0 0 0];
 matlabbatch{1}.spm.spatial.coreg.estwrite.roptions.mask = 0;
 matlabbatch{1}.spm.spatial.coreg.estwrite.roptions.prefix = EXP.prefix;
 
-save([path1,'/coreg.mat'], 'matlabbatch');
+save(fullfile(path1,'coreg.mat'), 'matlabbatch');
 spm_jobman('run', matlabbatch);
 
 %sometimes it includes NaN (but for label iamge?)
 if isfield(EXP,'name_others')
   for j=1:numel(fnames)
     [path1,name1,~] = fileparts(fnames{j});
-    nii = load_untouch_nii([path1,'/',EXP.prefix,name1,'.nii']);
+    nii = load_untouch_nii(fullfile(path1,[EXP.prefix,name1,'.nii']));
     nii.img(isnan(nii.img)) = 0;
-    save_untouch_nii(nii,  [path1,'/',EXP.prefix,name1,'.nii']);
+    save_untouch_nii(nii,  fullfile(path1,[EXP.prefix,name1,'.nii']));
   end
 end
 

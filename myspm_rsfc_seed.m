@@ -13,6 +13,10 @@ function EXP = myspm_rsfc_seed (EXP)
 %  .mask.names    {Jx1}
 %  .mask.query    'Nx1'   string to find filename, ${subj} will be replaced by subject's id
 %
+%  .fname_cc      'Nx1' filename of residual image
+% or 
+%  .fname_ppi     'Nx1' using PPI
+%
 %  .dir_base
 % (.ismni)        '1x1'   space to compute rsfc: 0=native (default) or 1=mni152
 % (.ispc1)        '1x1'   seed timeseries: 0=mean (default) or 1=first principle component
@@ -29,10 +33,10 @@ fwhm = sprintf('%0.1f',EXP.fwhm);
 if ~isfield(EXP,'ismni152'), EXP.ismni152=0; end;
 spaces = {'native','mni152'};
 space = spaces{EXP.ismni152+1};
-if ~isfield(EXP,'ispc1'), EXP.ispc1=0; end;
+if ~isfield(EXP,'ispc1'), EXP.ispc1=1; end;
 seedYs = {'mean','pc1'};
 seedY  = seedYs{EXP.ispc1+1};
-if ~isfield(EXP,'isglm'), EXP.isglm=0; end;
+if ~isfield(EXP,'isglm'), EXP.isglm=1; end;
 computes = {'corr','glm'};
 compute = computes{EXP.isglm+1};
 subjID = fsss_subjID(EXP.subjID);
@@ -45,25 +49,34 @@ elseif isfield(EXP,'mask')
 end
 if ~iscell(SEEDNAMES), SEEDNAMES={SEEDNAMES}; end
 
+if EXP.fwhm~=0
+  fwhmtxt=['_s',fwhm];
+else
+  fwhmtxt='';
+end
 for j=1:numel(SEEDNAMES)
   seedname = SEEDNAMES{j};
   if isfield(EXP,'mask')&&isfield(EXP.mask,'radius')
     radius = EXP.mask.radius;
   elseif isfield(EXP,'parc')&&isfield(EXP.parc,'radius')
     radius = EXP.parc.radius;
-  end  
+  end
   if exist('EXP.mask.radius','var')
     seedname_out=[seedname,'_r',num2str(radius),'mm'];
   else
     seedname_out = seedname;
   end
-  dir_mni=[EXP.dir_base,'/mni152/s',fwhm,'_',space,'_',seedY,'_',compute,'_',seedname];
-  [~,~]=mkdir(dir_mni);  
+  dir_mni=[EXP.dir_base,'/mni152/',compute,'_',seedname,'-',seedY,fwhmtxt];
+  [~,~]=mkdir(dir_mni);
   
   for n=1:numel(subjID)
     subjid=subjID{n};
-    dir2=[EXP.dir_base,'/',subjid,'/s',fwhm,'_',space,'_',seedY,'_',compute,'_',seedname];
-    [~,~]=mkdir(dir2);  
+    if ~isfield(EXP,'dir_prefix'), EXP.dir_prefix=''; end
+    % ppi_Amyg-RxSOUND
+    % s8fr6w_r3mm_glm_AmygL-pc1
+    dir2=[EXP.dir_base,'/',subjid,'/',...
+      EXP.dir_prefix,compute,'_',seedname,'-',seedY,fwhmtxt];
+    [~,~]=mkdir(dir2);
     if ~exist([dir_mni,'/wcbeta2_',subjid,'.nii'],'file') || ...
         ~exist([dir_mni,'/wccorr_',subjid,'.nii'],'file') || ...
         overwrite
@@ -102,17 +115,20 @@ for j=1:numel(SEEDNAMES)
       else
         %fname='mfruarest410.nii';
         fname='fruarest410.nii';
-        if isfield(EXP,'name_epi')
-          fname=EXP.name_epi;
+        if isfield(EXP,'fname_cc')
+          fname=EXP.fname_cc;
         end
       end
-      
-      exp1=[];
-      exp1.fnames=[dir1,'/',fname];
-      exp1.fwhm = EXP.fwhm;
-      sfname = [dir1,'/s',fwhm,fname];
-      if ~exist(sfname,'file');
-        myspm_smooth(exp1);
+      if EXP.fwhm
+        exp1=[];
+        exp1.fnames=[dir1,'/',fname];
+        exp1.fwhm = EXP.fwhm;
+        sfname = [dir1,'/s',fwhm,fname];
+        if ~exist(sfname,'file');
+          myspm_smooth(exp1);
+        end
+      else
+        sfname=[dir1,'/',fname];
       end
       y = load_untouch_nii(sfname,1);
       
@@ -120,8 +136,8 @@ for j=1:numel(SEEDNAMES)
       if isfield(EXP,'mask')
         % I need to register mask in 7T-t1w to 3T-fmri space
         query = EXP.mask.fnames_query;
-        idx1 = findstr(query,'${');
-        idx2 = findstr(query,'}');
+        idx1 = strfind(query,'${');
+        idx2 = strfind(query,'}');
         fname=[query(1:idx1-1),subjid,query(idx2+1:end)];
         mask = load_untouch_nii(fname);
         idx1 = ~~mask.img;
@@ -135,9 +151,9 @@ for j=1:numel(SEEDNAMES)
           IJK = find3(idx1);
         end
       elseif isfield(EXP,'sphere') % if coordinates are given
-        ijk0  = round(xyz2ijk(EXP.sphere.xyz{j},y));
+        ijk0  = round(xyz2ijk(EXP.sphere.xyz(j,:),y));
         idx1 = reshape(l2norm(find3(y.img*0+1)-repmat(ijk0,[numel(y.img),1])) ...
-          < EXP.sphere.radius,size(y.img));
+          < EXP.sphere.radius, size(y.img));
         IJK = find3(idx1);
       elseif isfield(EXP,'parc')
         if strcmp(space,'mni152'),
@@ -165,8 +181,13 @@ for j=1:numel(SEEDNAMES)
       end
       
       %% Compute PC#1 and mean
-      P = spm_vol(sfname);
-      Y = spm_get_data(P, IJK');
+      hdr = load_untouch_header_only(sfname);
+      d = hdr.dime.dim(2:5);
+      Y = zeros(d(4), sum(~~idx1(:)));
+      for i=1:d(4)
+        y = load_untouch_nii(sfname,i);
+        Y(i,:) = y.img(idx1(:));
+      end
       [U,S,V] = svd(Y,'econ');
       meanY = mean(Y,2);
       
@@ -179,20 +200,25 @@ for j=1:numel(SEEDNAMES)
       end
       
       %% plot: where in the seed?
-      brain = load_untouch_nii([dir1,'/oBrain.nii']);
-      K = linspace(min(IJK(:,3)), max(IJK(:,3)), 5);
-      J = fliplr(linspace(min(IJK(:,2)), max(IJK(:,2)), 5));
-      I = linspace(min(IJK(:,1)), max(IJK(:,1)), 5);
+      if isfield(EXP,'name_t1w')
+        brain = load_untouch_nii([dir1,'/',EXP.name_t1w]);
+      else
+        brain = load_untouch_nii([dir1,'/oBrain.nii']);
+      end
+      K = linspace(min(IJK(:,3)), max(IJK(:,3)), 3);
+      J = fliplr(linspace(min(IJK(:,2)), max(IJK(:,2)), 3));
+      I = linspace(min(IJK(:,1)), max(IJK(:,1)), 3);
       
       hf=figure('position',[1921 1 1024 1176], 'color','k');
       [~,ax]=axeslayout(5*2*6,[5*2,6],[0 0]);
-      [~,ax2]=axeslayout(30,[5,6],[0.1 0.1]);
+      [~,ax2]=axeslayout(30,[5,2],[0.1 0.1]);
       
       vals=[U(:,1:4), meanY];
+      
       % PC#1 to #4 and meanY
       for u1=1:maxU
         k=1; ii=1;
-        axespos(ax2,1+6*(u1-1));
+        axespos(ax2,1+2*(u1-1));
         plot(vals(:,u1), 'g'); xlim([1 size(Y,1)]); xlabel('TR');
         ylim0=ylim;
         if u1<5
@@ -201,9 +227,10 @@ for j=1:numel(SEEDNAMES)
           text(1,ylim0(end)*.9, 'meanY','color','w');
         end
         set(gca,'xcolor','w','color','k','ycolor','w');
-        for k=2:6 % slices
+        for k=2:4 % slices
           for ii=1:2
-            axespos(ax,k+12*(u1-1)+6*(ii-1));
+            %axespos(ax, k+12*(u1-1)+6*(ii-1));
+            axespos(ax, 2+k + 12*(u1-1) + 6*(ii-1));
             corrvol = y.img*0;
             corrvol(idx1) = corr(Y,vals(:,u1));
             if ii==1
@@ -222,16 +249,16 @@ for j=1:numel(SEEDNAMES)
       end
       screen2png([dir_mni,'/',subjid,'_pcsNmeans.png']);
       close(hf);
-      
       switch compute
         case 'glm'
-          %% temporally filtered data, and no psychological condition;
-          % > thus 2nd-level glm without HRF modelling
+          %%  SPM-GLM
           exp2 = EXP;
+          P = spm_vol(sfname);
           for i=1:size(P,1)
             exp2.fnames{i,1} = [sfname,',',num2str(i)];
           end
           exp2.dir_glm = dir2;
+          EXP.dir_glm = dir2;
           if strcmp(seedY,'mean')
             exp2.model    = 1 + term(zscore(meanY),seedname);
           else
@@ -241,30 +268,43 @@ for j=1:numel(SEEDNAMES)
           exp2.cidx     = 2;
           exp2.noresult = 1;
           exp2 = rmfield(exp2,'fwhm'); % smoothing should be done before running glm in order to extract PC from smoothed data
-          myspm_glm(exp2)
-          %dir2 = exp2.dir_glm;
+          if ~isfield(EXP,'fname_cc') % for already processed (regressed out) data
+            myspm_glm(exp2);
+          else % or.. for PPI
+            load(EXP.fname_ppi, 'PPI');
+            exp2.reg(1).name = 'phy';
+            exp2.reg(1).val  = PPI.Y;
+            exp2.filenames   = {sfname};
+            exp2.cntrstMtx   = [1; -1];
+            exp2.titlestr    = {'+phy','-phy'};
+            exp2.model_desc  = 'phy';
+            exp2.prefix_sum  = [subjid,'_'];
+            if isfield(EXP,'fname_sc')
+              myspm_fmriglm_scrub(exp2);
+            else
+              myspm_fmriglm(exp2);
+            end
+          end
           fname2 = 'beta_0002';
-          
         case 'corr'
           %% now just compute correlation from the smoothed images
-          nii = load_untouch_nii(sfname);
-          d = size(nii.img);
-          nii_out = y;
-
-          if strcmp(seedY,'mean')
-            %dir2=[dir1,'/',compute,'/s',fwhm,'_',space,'_mean_',seedname_out];
-            R = reshape(corr(reshape(nii.img,[],d(4))', meanY),d(1:3));
-          else
-            %dir2=[dir1,'/',compute,'/s',fwhm,'_',space,'_pc1_',seedname_out];
-            R = reshape(corr(reshape(nii.img,[],d(4))', U(:,1)),d(1:3));
+          R = zeros(d(1:3));
+          for z=1:d(3)
+            y = load_untouch_nii(sfname, 1:d(4), [], [], [], [], z);
+            if strcmp(seedY,'mean')
+              corrslice = reshape(corr(reshape(y.img,[],d(4))', meanY),d(1:2));
+            else
+              corrslice = reshape(corr(reshape(y.img,[],d(4))', U(:,1)),d(1:2));
+            end
+            R(:,:,z) = corrslice;
           end
-          %[~,~]=mkdir(dir2);
+          nii_out = y;
           nii_out.img = R;
           fname2 = 'corr';
           save_untouch_nii(nii_out, [dir2,'/',fname2,'.nii']);
       end
       
-      if strcmp(space,'native')
+      if strcmp(space,'native') && ~isfield(EXP,'nocoreg')
         %% now coreg it into indi-T1w
         exp3=EXP;
         exp3.subjID={subjid};

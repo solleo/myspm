@@ -396,12 +396,17 @@ switch Cplot
     [p q] = sort(x);
     %Col(4,:)=[.5 .5 1];
     h=[0 0];
+    if mod(cfg.Ic,2) == 0
+      x=-x;
+    end
+
+
     if all(diff(x(q))) % no duplication of x (thus likely continuous..?)
-      h(2)=plot(x(q),Y1(q),'LineWidth',4,'Color',Col(2,:));
+      h(1)=plot(x(q),y0(q),'.','MarkerSize',8, 'Color',Col(3,:)); %offset adjustment (by sgKIM)
+      h(2)=plot(x(q),Y1(q),'LineWidth',2,'Color',Col(2,:));
       %plot(x(q),y(q),'-','Color',[.8 .8 .8]);
       %h(2)=plot(x(q),y(q),'.','MarkerSize',8, 'Color',Col(3,:));
-      h(1)=plot(x(q),y0(q),'.','MarkerSize',8, 'Color',Col(3,:)); %offset adjustment (by sgKIM)
-      plot(x(q),y0(q),'-','Color',[.8 .8 .8]);
+      %plot(x(q),y0(q),'-','Color',[.8 .8 .8]);
     else % for discrete values
       try h(2)=plot(x(q),Y1(q),'.','MarkerSize',8,'Color',Col(1,:));
       catch ME

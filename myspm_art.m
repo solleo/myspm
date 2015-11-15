@@ -3,6 +3,13 @@ function EXP = myspm_art(EXP)
 %
 % performs ART to find outliers (Z>3.0, motion>0.6mm)
 %
+% EXP requires:
+%  .global_threshold
+%  .motion_threshold
+%  .subjID
+%  .dir_base
+%  .name_epi
+%
 % (cc) 2015, sgKIM.  solleo@gmail.com  https://ggooo.wordpress.com
 
 global overwrite; if isempty(overwrite), overwrite=0; end
@@ -15,21 +22,19 @@ if ~isfield(EXP,'global_threshold')
   global_threshold=3.0;         % threshold for outlier detection based on global signal
 else
   global_threshold=EXP.global_threshold;
-%   output_suffix=[output_suffix 'z',num2str(global_threshold,1)];
+  %   output_suffix=[output_suffix 'z',num2str(global_threshold,1)];
 end
 if ~isfield(EXP,'motion_threshold')
   motion_threshold=0.5;         % threshold for outlier detection based on motion estimates
 else
   motion_threshold=EXP.motion_threshold;
-%   output_suffix=[output_suffix 'm',num2str(motion_threshold,1)];
+  %   output_suffix=[output_suffix 'm',num2str(motion_threshold,1)];
 end
 use_diff_motion=1;            % 1: uses scan-to-scan motion to determine outliers; 0: uses absolute motion
 use_diff_global=1;            % 1: uses scan-to-scan global signal change to determine outliers; 0: uses absolute global signal values
 use_norms=1;                  % 1: uses composite motion measure (largest voxel movement) to determine outliers; 0: uses raw motion measures (translation/rotation parameters)
 mask_file=[];                 % set to user-defined mask file(s) for global signal estimation (if global_mean is set to 2)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 
 path0=pwd;
 subjID = fsss_subjID(EXP.subjID);
@@ -81,23 +86,24 @@ for i=1:numSubj
     art('sess_file',fname_cfg);
     
     % rename
-    movefile([path1,'/art_regression_outliers_uarest410.mat'], ...
-      [path1,'/art_regression_outliers_uarest410',output_suffix,'.mat']);
-    movefile([path1,'/art_regression_outliers_and_movement_uarest410.mat'], ...
-      [path1,'/art_regression_outliers_and_movement_uarest410',output_suffix,'.mat']);
+    movefile([path1,'/art_regression_outliers_',name1,'.mat'], ...
+      [path1,'/art_regression_outliers_',name1,output_suffix,'.mat']);
+    movefile([path1,'/art_regression_outliers_and_movement_',name1,'.mat'], ...
+      [path1,'/art_regression_outliers_and_movement_',name1,output_suffix,'.mat']);
     
-    screen2png([path1,'/art_plot',output_suffix,'.png'],72);
-    close(gcf);
     
     % copy figures
     if isfield(EXP,'dir_figure')
+      screen2png([path1,'/art_plot',output_suffix,'.png'],72);
+      
       [~,~]=mkdir(EXP.dir_figure);
       copyfile([path1,'/art_plot',output_suffix,'.png'], ...
         [EXP.dir_figure,'/art_plot',output_suffix,'_',subjid,'.png']);
     end
+    close(gcf);
+    
   end
   % count outliers
-  
   load(fname_art);
   numOut(i)=size(R,2);
 end
@@ -119,4 +125,3 @@ if isfield(EXP,'dir_figure')
 end
 cd(path0);
 end
-

@@ -17,8 +17,7 @@ if isfield(EXP,'cntrstMtx')
     if isfield(EXP,'titlestr')
       con.consess{k}.tcon.name = EXP.titlestr{k};
     else
-      s=2-mod(k,2);
-      con.consess{k}.tcon.name = [SIGN{s}, EXP.COND(k).name];
+      con.consess{k}.tcon.name = ['condition#',num2str(k)];
     end
     con.consess{k}.tcon.convec = EXP.cntrstMtx(k,:);
     if NumSess>1
@@ -69,11 +68,11 @@ spm_jobman('run', matlabbatch)
 %% Now create result reports
 EXP.mygraph.y_name = 'y';
 EXP.mygraph.x_name = 'x';
-if ~isfield(EXP,'thresh')
-  EXP.thresh.desc  = 'cluster';
-  EXP.thresh.alpha = 0.05;
+if ~isfield(EXP,'thres')
+  EXP.thres.desc  = 'cluster';
+  EXP.thres.alpha = 0.05;
 end
-if ~isfield(EXP,'NOREPORT')
+if ~isfield(EXP,'NOREPORT') && ~isfield(EXP,'noreport') 
   myspm_result(EXP);
 end
 

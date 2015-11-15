@@ -1,7 +1,7 @@
 function EXP=myspm_glm (EXP)
 % EXP=myspm_glm (EXP)
 %
-% This script helps you to set and run GLMs. A result report of the 1st-level GLM 
+% This script helps you to set and run GLMs. A result report of the 1st-level GLM
 %   will be created using myspm_result.m and myspm_graph.m
 %
 %
@@ -29,7 +29,7 @@ function EXP=myspm_glm (EXP)
 %  .vi.name      'string' a name of interest
 %  .vn(c).val    [Nsubjx1] a vector of c-th nuissance variable
 %  .vn(c).name   'string' a name of c-th nuissance variable
-% or 
+% or
 %  .model        <term> SurfStat term structure that describes a GLM
 %  .cidx         [1x1] 1-based index for the contrast of interest
 %
@@ -87,7 +87,6 @@ elseif isfield(EXP,'filenames')
 else
   error('You need to specify inputs in EXP.files_query or EXP.filenames');
 end
-
 Nsubj=numel(fnames);
 
 % check second scans for paired t-test
@@ -118,7 +117,6 @@ if isfield(EXP,'fwhm')
 end
 
 %% design specification
-
 switch design
   case 'mreg' % multiple regression
     EXP = myspm_strcNterm(EXP);
@@ -164,21 +162,20 @@ if ~isfield(EXP,'masking')
   matlabbatch{1}.spm.stats.factorial_design.masking.em = {''};
 else
   if isnumeric(EXP.masking)
-    %EXP.masking ='/scr/vatikan1/skim/matlab/spm12/tpm/mask_ICV.nii';
-     mask_mni = [spm('dir'),'/tpm/gray',num2str(EXP.masking),'.nii'];
-%     %if ~exist(mask_mni,'file')
-      nii = load_untouch_nii([spm('dir'),'/tpm/TPM.nii']);
-      nii.img = double(nii.img(:,:,:,1)>EXP.masking);
-      nii.hdr.dime.datatype=2;
-      nii.hdr.dime.dim(5)=1;
-      save_untouch_nii(nii,mask_mni);
-%     %end
-%     [path1,~,~] = fileparts(fnames{1,1}(1:end-2));
-%     mask_indi = [path1,'/ogray_',num2str(EXP.masking),'.nii'];
-%     unix(['mri_convert --like ',fnames{1,1}(1:end-2),' ',mask_mni,' ',mask_indi]);
-     EXP.masking = mask_mni;
+    fname_func1 = fnames{1,1}(1:end-2);
+    fname_mask = [EXP.dir_glm,'/masking_',num2str(EXP.masking),'.nii'];
+    spmversion=spm('version');
+    if strcmp(spmversion(4:5),'8 ')
+      fname_moving = [spm('Dir'),'/tpm/grey.nii'];
+    else
+      fname_tpm = [spm('Dir'),'/tpm/TPM.nii'];
+      fname_moving = '/tmp/grey.nii';
+      unix(['fslroi ',fname_tpm,' ',fname_moving,' 0 1']);
+    end
+    unix(['mri_convert --like ',fname_func1,' ',fname_moving,' ',fname_mask]);
+    EXP.masking = fname_mask;
   end
-  matlabbatch{1}.spm.stats.factorial_design.masking.em = {EXP.masking};
+  matlabbatch{1}.spm.stats.factorial_design.masking.em = {[EXP.masking,',1']};
 end
 
 matlabbatch{1}.spm.stats.factorial_design.globalc.g_omit = 1;
@@ -197,7 +194,7 @@ end
 matlabbatch{1}.spm.stats.factorial_design.dir = {EXP.dir_glm};
 
 
-%% Run glm
+%% set up GLM
 save([EXP.dir_glm,'/glm_design.mat'], 'matlabbatch');
 spm_jobman('initcfg')
 spm_jobman('run', matlabbatch)
@@ -248,7 +245,7 @@ switch design
 end
 EXP.NumCntrst=2;
 
-%% Run glm
+%% Estimate betas
 save([EXP.dir_glm,'/glm_estimation.mat'], 'matlabbatch');
 spm_jobman('run', matlabbatch)
 
@@ -257,14 +254,17 @@ if ~isfield(EXP,'mygraph')
   EXP.mygraph.y_name='y';
   EXP.mygraph.x_name='x';
 end
-if ~isfield(EXP,'thresh')
-  EXP.thresh.desc='cluster';
-  EXP.thresh.alpha=0.05;
+if ~isfield(EXP,'thres')
+  EXP.thres.desc='cluster';
+  EXP.thres.alpha=0.05;
 end
 if isfield(EXP,'noresult')&&EXP.noresult
   return
 else
-  myspm_result(EXP)
+  EXP = myspm_result(EXP);
 end
+
+%% Z-transform from T-maps
+
 
 end
