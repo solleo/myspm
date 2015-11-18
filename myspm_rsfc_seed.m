@@ -17,6 +17,8 @@ function EXP = myspm_rsfc_seed (EXP)
 % or 
 %  .fname_ppi     'Nx1' using PPI
 %
+%  .name_t1w      'Nx1' for anatomical image
+%
 %  .dir_base
 % (.ismni)        '1x1'   space to compute rsfc: 0=native (default) or 1=mni152
 % (.ispc1)        '1x1'   seed timeseries: 0=mean (default) or 1=first principle component

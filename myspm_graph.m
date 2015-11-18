@@ -278,7 +278,7 @@ spm('Pointer','Arrow');
 
 %-Colour specifications and index;
 %--------------------------------------------------------------------------
-Col   = [0 0 0; .8 .8 .8; 1 .5 .5];
+Col   = [0 0 0; .4 .4 .4; 1 .5 .5];
 switch Cplot
   
   %-Plot parameter estimates

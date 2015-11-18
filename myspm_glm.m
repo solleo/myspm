@@ -1,60 +1,71 @@
 function EXP=myspm_glm (EXP)
-% EXP=myspm_glm (EXP)
-%
-% This script helps you to set and run GLMs. A result report of the 1st-level GLM
-%   will be created using myspm_result.m and myspm_graph.m
-%
-%
-% EXP requires for myspm_glm.m:
-% -output directory
-%  .dir_glm      'Nx1' directory to save SPM results
-% or
-%  .dir_base     'Nx1' directory for a subdirectory that has SPM.mat
-% (.dir_prefix)
-%
-% -input files
-%  .subjID       [NxM] or {Nx1}
-%  .files_query  'Nx1' a query to find image filenames. Wildcard (*) can be used
-%                except "${subj}", which will be replaced by given .subjID
-% or
-%  .filenames    {Nsubjx1} (instead of files_query)
-%
-% (.fwhm)        [1x1|1x3] 3-D smoothing kernel size in mm
-% (.masking)     'Nx1' filename for an explicit (inclusive) mask
-%  .design       'Nx1' type of GLM design: either multiple regression ('mreg'),
-%                       or one-sample t-test ('t1') or paired t-test ('pt')
-%
-% -for model specification (i.e. when EXP.design='mreg'):
-%  .vi.val       [Nsubjx1] a vector of interest
-%  .vi.name      'string' a name of interest
-%  .vn(c).val    [Nsubjx1] a vector of c-th nuissance variable
-%  .vn(c).name   'string' a name of c-th nuissance variable
-% or
-%  .model        <term> SurfStat term structure that describes a GLM
-%  .cidx         [1x1] 1-based index for the contrast of interest
-%
-% optionally for myspm_result.m:
-% (.thresh.desc)    'Nx1'  'FWE','none', or 'cluster'(default)
-% (.thresh.alpha)   [1x1]  alpha level (default=0.05)
-% (.thresh.extent)  [1x1]  extent threshold of clusters in voxels (default=0)
-% (.thresh.clusterInitAlpha)   <1x1> cluster forming height threshold (default=0.001)
-% (.thresh.clusterInitExtent)  <1x1> cluster forming extent (in voxels) threshold (default=10)
-% (.fname_struct)   'Nx1' fullpath filename for background anatomical image for orthogonal slices
-%                         (defulat='$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz')
-% (.titlestr)       {1xNcont} Title text for SPM result report (default={'positive','negative'})
-% (.dir_sum)        'Nx1' a summary directory into where you want to copy significant results
-% (.append)         [1x1] whether to append results into an existing report (default=0)
-% (.print)          [1x1] whether to generate results (default=1)
-% (.mygraph.x_name) 'Nx1' x-axis label in a scatterplot (default='x')
-% (.mygraph.y_name) 'Nx1' y-axis label in a scatterplot (default='y')
-% (.atlas)          'Nx1' atlas to find anatomical names: 'fsl' (default) or 'spm12'
-%
-% Example:
-%
-% Results:
-%
-%
-% (cc) 2015. sgKIM.  mailto://solleo@gmail.com  https://ggooo.wordpress.com/
+%{
+EXP=myspm_glm (EXP)
+
+This script helps you to set and run GLMs. A result report of the 1st-level GLM
+  will be created using myspm_result.m and myspm_graph.m
+
+
+EXP requires for myspm_glm.m:
+-output directory
+ .dir_glm      'Nx1' directory to save SPM results
+or
+ .dir_base     'Nx1' directory for a subdirectory that has SPM.mat
+(.dir_prefix)
+
+-input files
+ .subjID       [NxM] or {Nx1}
+ .files_query  'Nx1' a query to find image filenames. Wildcard (*) can be used
+               except "${subj}", which will be replaced by given .subjID
+or
+ .filenames    {Nsubjx1} (instead of files_query)
+
+(.fwhm)        [1x1|1x3] 3-D smoothing kernel size in mm
+(.masking)     'Nx1' filename for an explicit (inclusive) mask
+ .design       'Nx1' type of GLM design: either multiple regression ('mreg'),
+                      or one-sample t-test ('t1') or paired t-test ('pt')
+
+-for model specification (i.e. when EXP.design='mreg'):
+ .vi.val       [Nsubjx1] a vector of interest
+ .vi.name      'string' a name of interest
+ .vn(c).val    [Nsubjx1] a vector of c-th nuissance variable
+ .vn(c).name   'string' a name of c-th nuissance variable
+or
+ .model        <term> SurfStat term structure that describes a GLM
+ .cidx         [1x1] 1-based index for the contrast of interest
+
+optionally for myspm_result.m:
+(.thresh.desc)    'Nx1'  'FWE','none', or 'cluster'(default)
+(.thresh.alpha)   [1x1]  alpha level (default=0.05)
+(.thresh.extent)  [1x1]  extent threshold of clusters in voxels (default=0)
+(.thresh.clusterInitAlpha)   <1x1> cluster forming height threshold (default=0.001)
+(.thresh.clusterInitExtent)  <1x1> cluster forming extent (in voxels) threshold (default=10)
+(.fname_struct)   'Nx1' fullpath filename for background anatomical image for orthogonal slices
+                        (defulat='$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz')
+(.titlestr)       {1xNcont} Title text for SPM result report (default={'positive','negative'})
+(.dir_sum)        'Nx1' a summary directory into where you want to copy significant results
+(.append)         [1x1] whether to append results into an existing report (default=0)
+(.print)          [1x1] whether to generate results (default=1)
+(.mygraph.x_name) 'Nx1' x-axis label in a scatterplot (default='x')
+(.mygraph.y_name) 'Nx1' y-axis label in a scatterplot (default='y')
+(.atlas)          'Nx1' atlas to find anatomical names: 'fsl' (default) or 'spm12'
+
+Example: one-sample t-test with a covariate
+
+EXP=[];
+EXP.dir_base = '/where/I/want/to/create/dir_glm/';
+EXP.subjID   = {'subj1','subj2'};
+EXP.files_query = '/where/I/have/data/${subj}/fmridata/preproced_epi.nii';
+EXP.design  = 't1';
+EXP.vn.val  = age;
+EXP.vn.name = 'age';
+myspm_glm(EXP)
+
+Results:
+
+
+(cc) 2015. sgKIM.  mailto://solleo@gmail.com  https://ggooo.wordpress.com/
+%}
 
 if nargin<1, help myspm_glm; return; end
 
@@ -110,7 +121,7 @@ if strcmpi(design,'pt')
 end
 
 %% isotropic smoothing
-if isfield(EXP,'fwhm')
+if isfield(EXP,'fwhm')&&EXP.fwhm
   EXP.fnames = fnames;
   EXP = myspm_smooth(EXP);
   fnames = EXP.fnames;

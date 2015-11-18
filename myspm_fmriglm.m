@@ -116,7 +116,7 @@ elseif isfield(EXP,'filenames')
     fnames{n,1} = [EXP.filenames{n},',1'];
   end
 else
-  error('You need to specify inputs in EXP.files_queryend or EXP.filenames');
+  error('You need to specify inputs in EXP.files_query or EXP.filenames');
 end
 ls(fnames{n,1}(1:end-2));
 EXP.NumSess = numel(fnames);
