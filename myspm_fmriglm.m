@@ -105,7 +105,7 @@ end
 [~,~]=mkdir(EXP.dir_glm);
 
 if isfield(EXP,'files_query')
-  fnames={};
+  fnames={}; % this MUST be a column vector <Sx1>
   files = dir(EXP.files_query);  % this will sort the filename!
   [mypath,~,~] = fileparts(EXP.files_query);
   for n=1:numel(files)
@@ -156,7 +156,7 @@ matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t0 = 8; % middle point
 sess=[];
 for j=1:EXP.NumSess
   for t=1:EXP.NumFrames
-    sess(j).scans{t} = [EXP.filenames{j},',',num2str(t)];
+    sess(j).scans{t,1} = [EXP.filenames{j},',',num2str(t)]; % this must be <Tx1>
   end
   if EXP.NumCond
     for k=1:EXP.NumCond
