@@ -583,18 +583,13 @@ for n=1:numel(subjID)
         output_suffix);
     end
     nii.img = reshape(yres',d);
-    
-    %     if EXP.num_pcs ~= 16 % it'd be actually crazy to go further
     pcsnum=num2str(EXP.num_pcs);
-    %     else
-    %       pcsnum='';
-    %     end
     if isfield(EXP,'out_prefix')
       out_prefix=EXP.out_prefix;
     else
-      out_prefix='fr';
+      out_prefix=['fr',pcsnum];
     end
-    fname_out=[path1,out_prefix,pcsnum,EXP.name_epi];
+    fname_out=[path1,out_prefix,EXP.name_epi];
     disp(['> saving residual in ',fname_out,'..']);
     save_untouch_nii(nii, fname_out);
     

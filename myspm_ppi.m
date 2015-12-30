@@ -105,9 +105,10 @@ end
 % first column: i in SPM.Sess.U(i)
 % second column: j in SPM.Sess.U(i).name{j}
 % third column: weight
-NumCond = numel(EXP.ppi.cntrstVec);
-EXP.ppi.cntrstMtx = [1:NumCond; ones(1,NumCond); EXP.ppi.cntrstVec;]';
-%EXP.ppi.cntrstMtx(~EXP.ppi.cntrstMtx(:,2),2) = 1; % just in case..
+if ~isfield(EXP.ppi,'cntrstMtx')
+  NumCond = numel(EXP.ppi.cntrstVec);
+  EXP.ppi.cntrstMtx = [1:NumCond; ones(1,NumCond); EXP.ppi.cntrstVec;]';
+end
 
 if ~isfield(EXP,'dir_ppi')
   dir_ppi = [EXP.dir_base,'/ppi_',EXP.ppi.name];

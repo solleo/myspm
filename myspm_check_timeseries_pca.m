@@ -67,8 +67,8 @@ for n=1:numel(subjID)
     for j=tp
       Y(j,:)=reshape(spm_read_vols(P{p}(j)),[1,prod(dim(1:3))]);
     end
-    coef = pca(Y,3);
-    PC{p} = coef(:,[1:3]);
+    [~,score] = pca(Y);
+    PC{p} = score(:,[1:3]);
   end
   
   for k=1:3

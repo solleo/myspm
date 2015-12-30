@@ -111,6 +111,8 @@ if ~isfield(EXP,'fname_struct')
 end
 if strcmp(EXP.fname_struct,'conmus')
   EXP.fname_struct = '/scr/vatikan4/conmus3/GLM/MNI152_T1_2.5mm_masked.nii';
+elseif strcmp(EXP.fname_struct,'conmus1')
+  EXP.fname_struct = '/scr/vatikan4/conmus3/GLM/MNI152_T1_1mm_masked.nii';
 end
 [~,name1,ext1]=fileparts(EXP.fname_struct);
 if strcmp(ext1,'.gz')

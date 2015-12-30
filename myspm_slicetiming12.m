@@ -3,7 +3,6 @@ function EXP = myspm_slicetiming12 (EXP)
 %
 % EXP requires:
 %  .fname_epi
-%  .fname_t1w
 %  .epitype : either "3T_EPIwb_2.3mm_iPAT3" or "7T_EPIslab_1.5mm_iPAT3" (or "7T_EPIwb_1mm_iPAT1")
 % 
 %

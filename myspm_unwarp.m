@@ -1,15 +1,19 @@
 function EXP = myspm_unwarp(EXP)
 % EXP = myspm_unwarp(EXP)
 %
+% unified unwarping and realignment
+%
+% EXP requires:
+%  .subjid
+%  .fname_epi {Sx1}
+%  .fmap.vdm  (or fmap.fname_query
+% (.fname_t1w) for VDM preparation
 %
 % (cc) 2015, sgKIM.  solleo@gmail.com  https://ggooo.wordpress.com
 
 
 spm('Defaults','fmri')
-global overwrite
-if isempty(overwrite)
-  overwrite=0;
-end
+global overwrite; if isempty(overwrite),  overwrite=0;  end
 pwd0=pwd;
 
 disp('# Realigning and unwarping..');
@@ -29,9 +33,7 @@ if ~isfield(EXP,'dir_exp')
 else
   dir_exp = EXP.dir_exp;
 end
-if ~isfield(EXP,'fname_t1w')
-  EXP.fname_t1w='';
-end
+if ~isfield(EXP,'fname_t1w'),   EXP.fname_t1w='';  end
 cd (dir_exp);
 
 for sess = 1:n_sess
@@ -60,7 +62,7 @@ for sess = 1:n_sess
   %% 2. Unwarp and resample
   % 2-1. find field map files:
   
-  if isfield(EXP,'fmap')	% fieldmap scan available
+  if isfield(EXP,'fmap')&&~isempty(EXP.fmap)	% fieldmap scan available
     if (~isfield(EXP.fmap,'shortmag') || ~isfield(EXP.fmap,'phasedif')) && ~isfield(EXP.fmap,'vdm')
       [~,fullnames] = mydir(EXP.fmap.fname_query,1);
       EXP.fmap.shortmag = fullnames{1};
@@ -125,7 +127,6 @@ for sess = 1:n_sess
   end
   
   % 2-2. Estimate unwarping parameters
-  %fname_mat = fullfile(dir_exp, [name1,'_uw.mat']);
   fname_mat = fullfile(dir_exp, ['u',name1,'.mat']);
   if ~exist(fname_mat,'file') || overwrite
     uw_est_flags=[];

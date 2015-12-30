@@ -11,11 +11,10 @@ function EXP = myspm_coreg(EXP)
 if ~nargin,  help myspm_coreg;  return; end
 [~,myname] = fileparts(mfilename('fullpath'));
 disp(['### ',myname,': starting..']);
-
+path0=pwd;
 if ~isfield(EXP,'subjID')
   myspm_coreg1(EXP);
 else
-  path0=pwd;
   subjID = fsss_subjID(EXP.subjID);
   for n=1:numel(subjID)
     subjid=subjID{n};
@@ -23,8 +22,8 @@ else
     cd(path1)
     myspm_coreg1(EXP);
   end
-  cd(path0);
 end
+cd(path0);
 end
 
 function myspm_coreg1(EXP)
@@ -83,7 +82,5 @@ if isfield(EXP,'name_others')
     save_untouch_nii(nii,  fullfile(path1,[EXP.prefix,name1,'.nii']));
   end
 end
-
-
 
 end

@@ -1,5 +1,7 @@
 function EXP = myspm_fmriprep12 (EXP)
 % EXP = myspm_fmriprep12 (EXP)
+% for whole-brain EPI with multiband (thus slice-timing-correction before
+% realignment/unwarping)
 %
 % This does:
 %   fname_epi -> slice timing correction -> unified unwarp+realign
@@ -26,9 +28,9 @@ hdr = spm_dicom_headers(EXP.fname_dcm);
 slice_order = hdr{1}.Private_0019_1029;
 TR_sec = hdr{1}.RepetitionTime/1000
 EXP.TR_sec = TR_sec;
-ref_slice_msec = TR_sec*1000/2        % in msec (when slice_order in given in msec)
+ref_slice_msec = TR_sec*1000/2;        % in msec (when slice_order in given in msec)
 hdr = load_nii_hdr(EXP.fname_epi);
-NumFrames = hdr.dime.dim(5)
+NumFrames = hdr.dime.dim(5);
 
 if ~isfield(EXP,'vox_mm')
   vox_mm = round(mean(hdr.dime.pixdim(2:4))*10)/10;
