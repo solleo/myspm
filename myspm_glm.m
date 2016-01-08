@@ -1,29 +1,29 @@
 function EXP=myspm_glm (EXP)
 % EXP=myspm_glm (EXP)
-% 
+%
 % This script helps you to set and run GLMs. A result report of the 1st-level GLM
 %   will be created using myspm_result.m and myspm_graph.m
-% 
-% 
+%
+%
 % EXP requires for myspm_glm.m:
 % -output directory
 %  .dir_glm      'Nx1' directory to save SPM results
 % or
 %  .dir_base     'Nx1' directory for a subdirectory that has SPM.mat
 % (.dir_prefix)
-% 
+%
 % -input files
 %  .subjID       [NxM] or {Nx1}
 %  .files_query  'Nx1' a query to find image filenames. Wildcard (*) can be used
 %                except "${subj}", which will be replaced by given .subjID
 % or
 %  .filenames    {Nsubjx1} (instead of files_query)
-% 
+%
 % (.fwhm)        [1x1|1x3] 3-D smoothing kernel size in mm
 % (.masking)     'Nx1' filename for an explicit (inclusive) mask
 %  .design       'Nx1' type of GLM design: either multiple regression ('mreg'),
 %                       or one-sample t-test ('t1') or paired t-test ('pt')
-% 
+%
 % -for model specification (i.e. when EXP.design='mreg'):
 %  .vi.val       [Nsubjx1] a vector of interest
 %  .vi.name      'string' a name of interest
@@ -32,7 +32,7 @@ function EXP=myspm_glm (EXP)
 % or
 %  .model        <term> SurfStat term structure that describes a GLM
 %  .cidx         [1x1] 1-based index for the contrast of interest
-% 
+%
 % optionally for myspm_result.m:
 % (.thresh.desc)    'Nx1'  'FWE','none', or 'cluster'(default)
 % (.thresh.alpha)   [1x1]  alpha level (default=0.05)
@@ -48,9 +48,9 @@ function EXP=myspm_glm (EXP)
 % (.mygraph.x_name) 'Nx1' x-axis label in a scatterplot (default='x')
 % (.mygraph.y_name) 'Nx1' y-axis label in a scatterplot (default='y')
 % (.atlas)          'Nx1' atlas to find anatomical names: 'fsl' (default) or 'spm12'
-% 
+%
 % Example: one-sample t-test with a covariate
-% 
+%
 % EXP=[];
 % EXP.dir_base = '/where/I/want/to/create/dir_glm/';
 % EXP.subjID   = {'subj1','subj2'};
@@ -59,9 +59,9 @@ function EXP=myspm_glm (EXP)
 % EXP.vn.val  = age;
 % EXP.vn.name = 'age';
 % myspm_glm(EXP)
-% 
+%
 % Results:
-% 
+%
 % (cc) 2015. sgKIM.  mailto://solleo@gmail.com  https://ggooo.wordpress.com/
 
 if nargin<1, help myspm_glm; return; end
@@ -86,6 +86,9 @@ elseif isfield(EXP,'files_query')
   suffix = EXP.files_query(idx+7:end);
   for n=1:numel(EXP.subjID)
     [~,res] = mydir([prefix,EXP.subjID{n},suffix]);
+    if isempty(res)
+      error(['File not found: ',prefix,EXP.subjID{n},suffix]);
+    end
     fnames{n,1}=[res{1},',1'];
   end
 elseif isfield(EXP,'filenames')
@@ -100,14 +103,20 @@ Nsubj=numel(fnames);
 % check second scans for paired t-test
 if strcmpi(design,'pt')
   if isfield(EXP,'files_query2')
-    files = dir(EXP.files_query2);
-    [mypath,~,~] = fileparts(EXP.files_query2);
-    for n=1:numel(files)
-      fnames{n,2} = [mypath,'/',files(n).name,',1'];
+    idx = strfind(EXP.files_query2,'${subj}');
+    prefix = EXP.files_query2(1:idx-1);
+    suffix = EXP.files_query2(idx+7:end);
+    for n=1:numel(EXP.subjID)
+      [~,res] = mydir([prefix,EXP.subjID{n},suffix]);
+      if isempty(res)
+        error(['File not found: ',prefix,EXP.subjID{n},suffix]);
+      end
+      fnames{n,2} = [res{1},',1'];
     end
   elseif size(EXP.filenames,2)
     for n=1:size(EXP.filenames,1)
       fnames{n,2} = [EXP.filenames{n,2},',1'];
+      
     end
   else
     error('You need to specify inputs in EXP.files_queryend or EXP.filenames');
@@ -252,6 +261,12 @@ switch design
     matlabbatch{2}.spm.stats.con.consess{2}.tcon.convec = [-1 1 X_cov zeros(1,size(fnames,1))];
 end
 EXP.NumCntrst=2;
+if isfield(EXP,'flipContrast'), EXP.flipContrast
+  matlabbatch{2}.spm.stats.con.consess{1}.tcon.convec = - matlabbatch{2}.spm.stats.con.consess{1}.tcon.convec;
+  matlabbatch{2}.spm.stats.con.consess{2}.tcon.convec = - matlabbatch{2}.spm.stats.con.consess{2}.tcon.convec;
+  matlabbatch{2}.spm.stats.con.consess{1}.tcon.name = ['-',EXP.vi.name];
+  matlabbatch{2}.spm.stats.con.consess{2}.tcon.name = ['+',EXP.vi.name];
+end
 
 %% Estimate betas
 save([EXP.dir_glm,'/glm_estimation.mat'], 'matlabbatch');

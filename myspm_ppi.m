@@ -25,7 +25,6 @@ function EXP = myspm_ppi (EXP)
 % EXP.dir_base   = [dir0,mrtID{i}];
 % EXP.filenames  = {[dir0,mrtID{i},'/swudata.nii']};
 % EXP.fname_rp   = [dir0,mrtID{i},'/rp_data.txt'];
-% EXP.model_desc = 'FC+FD+BC+BD_RP';
 %
 % shape of the VOI, name, and other options
 %
@@ -116,7 +115,7 @@ end
 [~,~] = mkdir(dir_ppi);
 EXP.fname_ppi = [dir_ppi,'/PPI.mat'];
 
-if EXP.TR<6 && ~isfield(EXP,'noDeconv') % less than 6 seconds of time-lag in BOLD
+%if EXP.TR<6 && ~isfield(EXP,'noDeconv') % less than 6 seconds of time-lag in BOLD
   matlabbatch={};
   matlabbatch{1}.spm.stats.ppi.spmmat = {[EXP.dir_psy,'/SPM.mat']};
   matlabbatch{1}.spm.stats.ppi.type.ppi.voi = {EXP.fname_voi};
@@ -130,23 +129,23 @@ if EXP.TR<6 && ~isfield(EXP,'noDeconv') % less than 6 seconds of time-lag in BOL
     src=[EXP.dir_psy,'/PPI_',EXP.ppi.name,'.mat'];
     movefile(src,EXP.fname_ppi);
   end
-else % just read psy (the design & contrast); read phy, and psyphy
-  load ([EXP.dir_voi,'/SPM.mat']);
-  load (EXP.fname_voi);
-  PPI=[];
-  PPI.P = SPM.xX.X(:,1:numel(EXP.ppi.cntrstVec)) * EXP.ppi.cntrstVec'; % if you use FIR for sparse sampling, H*X is also fine.
-  PPI.Y = Y;
-  PPI.ppi = PPI.P .* PPI.Y;
-  PPI.xY = xY;
-  save (EXP.fname_ppi, 'PPI');
-  figure;
-  subplot(311); plot(PPI.Y); ylabel('Phy');
-  subplot(312); plot(PPI.P); ylabel('Psy');
-  subplot(313); plot(PPI.ppi); ylabel('PsyPhy');
-  screen2png([EXP.dir_voi,'/PPI.png'],120);
-  close(gcf);
-  clear SPM
-end
+% else % just read psy (the design & contrast); read phy, and psyphy
+%   load ([EXP.dir_voi,'/SPM.mat']);
+%   load (EXP.fname_voi);
+%   PPI=[];
+%   PPI.P = SPM.xX.X(:,1:numel(EXP.ppi.cntrstVec)) * EXP.ppi.cntrstVec'; % if you use FIR for sparse sampling, H*X is also fine.
+%   PPI.Y = Y;
+%   PPI.ppi = PPI.P .* PPI.Y;
+%   PPI.xY = xY;
+%   save (EXP.fname_ppi, 'PPI');
+%   figure;
+%   subplot(311); plot(PPI.Y); ylabel('Phy');
+%   subplot(312); plot(PPI.P); ylabel('Psy');
+%   subplot(313); plot(PPI.ppi); ylabel('PsyPhy');
+%   screen2png([EXP.dir_voi,'/PPI.png'],120);
+%   close(gcf);
+%   clear SPM
+% end
 
 %% 3. run fmri-glm with the PPI
 EXP.model_desc = ['PPI_',EXP.ppi.name];

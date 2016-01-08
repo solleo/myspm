@@ -48,7 +48,6 @@ else
       end
     end
   end
-  
 end
 
 if isfield(EXP,'newContrast')

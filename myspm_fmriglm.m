@@ -65,23 +65,43 @@ function EXP=myspm_fmriglm (EXP)
 
 %% -1. PPI?
 if isfield(EXP,'fname_ppi')
-  load(EXP.fname_ppi, 'PPI');
-  EXP.reg=[];
-  EXP.reg(1).name = 'ppi';
-  EXP.reg(1).val  = PPI.ppi;
-  EXP.reg(2).name = 'psy';
-  EXP.reg(2).val  = PPI.P;
-  EXP.reg(3).name = 'phy';
-  EXP.reg(3).val  = PPI.Y;
-  EXP.cntrstMtx = [
-    +1  0  0
-    -1  0  0];
-  if isfield(EXP,'phy1')
+  if ~iscell(EXP.fname_ppi)
     load(EXP.fname_ppi, 'PPI');
     EXP.reg=[];
-    EXP.reg(1).name = 'phy';
-    EXP.reg(1).val  = zscore(PPI.Y);
-    EXP.cntrstMtx = [1; -1];
+    EXP.reg(1).name = 'ppi';
+    EXP.reg(1).val  = PPI.ppi;
+    EXP.reg(2).name = 'psy';
+    EXP.reg(2).val  = PPI.P;
+    EXP.reg(3).name = 'phy';
+    EXP.reg(3).val  = PPI.Y;
+    EXP.cntrstMtx = [
+      +1  0  0
+      -1  0  0];
+    if isfield(EXP,'phy1')
+      load(EXP.fname_ppi, 'PPI');
+      EXP.reg=[];
+      EXP.reg(1).name = 'phy';
+      EXP.reg(1).val  = zscore(PPI.Y);
+      EXP.cntrstMtx = [1; -1];
+    end
+  else
+%     load(EXP.fname_ppi{1}, 'PPI');
+%     EXP.reg(1).name = 'PHY';
+%     EXP.reg(1).val  = PPI.Y;
+%     EXP.cntrstMtx=[0 ];
+%     num_reg = numel(EXP.fname_ppi);
+%     PSYNAMES=EXP.ppi.NAMES;
+%     i=1;
+%     for k=1:num_reg
+%       load(EXP.fname_ppi{k}, 'PPI');
+%       EXP.reg(i).name = PSYNAMES{k};
+%       EXP.reg(i).val  = PPI.P;
+%       EXP.reg(i+1).name = [PSYNAMES{k},'xPHY'];
+%       EXP.reg(i+1).val  = PPI.ppi;
+%       i=i+2;
+%       EXP.cntrstMtx=[EXP.cntrstMtx 0 EXP.PPICntrstVec(k)];
+%     end
+%     EXP.cntrstMtx=[EXP.cntrstMtx 0 0]; % for interceptor 
   end
 end
 
@@ -166,7 +186,11 @@ for j=1:EXP.NumSess
         [~,n1,~]=fileparts(EXP.name_cond{k});
         EXP.COND(k).name = n1;
         [dir0,~,~] = fileparts_gz(fnames{j,1});
-        EXP.COND(k).onset = dlmread([dir0,'/',EXP.name_cond{k},'.ons']);
+        if strcmp(EXP.name_cond{k}(end-3:end),'.ons')
+          EXP.COND(k).onset = dlmread([dir0,'/',EXP.name_cond{k}]);
+        else
+          EXP.COND(k).onset = dlmread([dir0,'/',EXP.name_cond{k},'.ons']);
+        end
       end
       sess(j).cond(k).name     = EXP.COND(k).name;
       sess(j).cond(k).onset    = EXP.COND(k).onset;
