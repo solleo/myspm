@@ -22,11 +22,12 @@ if ~strcmp(a(4:5),'12')
 end
 
 % find slice timing in msec and repetition time in sec from a example DICOM
-[~,res] = mydir('/scr/vatikan1/skim/Tonotopy/main/dicom/SLET_3T/0014cmrr_mbep2d_lemon_32_rest.dcm');
+fname_dcm='/scr/vatikan1/skim/Tonotopy/main/dicom/SLET_3T/0014cmrr_mbep2d_lemon_32_rest.dcm'
+[~,res] = mydir(fname_dcm);
 EXP.fname_dcm= res{1};
 hdr = spm_dicom_headers(EXP.fname_dcm);
 slice_order = hdr{1}.Private_0019_1029;
-TR_sec = hdr{1}.RepetitionTime/1000
+TR_sec = hdr{1}.RepetitionTime/1000;
 EXP.TR_sec = TR_sec;
 ref_slice_msec = TR_sec*1000/2;        % in msec (when slice_order in given in msec)
 hdr = load_nii_hdr(EXP.fname_epi);
@@ -57,6 +58,10 @@ matlabbatch{1}.spm.temporal.st.refslice = ref_slice_msec;
 matlabbatch{1}.spm.temporal.st.prefix = 'a';
 
 % 2. unwarp/realign
+% outputs: 
+%   rigid-body transformation in ${fname_epi}.mat
+%   transformation matrices combined with unwarping in ${fname_epi}_uw.mat
+
 matlabbatch{2}.spm.spatial.realignunwarp.data.scans(1) = cfg_dep('Slice Timing: Slice Timing Corr. Images (Sess 1)', substruct('.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('()',{1}, '.','files'));
 matlabbatch{2}.spm.spatial.realignunwarp.data.pmscan = {[EXP.fname_vdm,',1']};
 matlabbatch{2}.spm.spatial.realignunwarp.eoptions.quality = 0.9;
@@ -137,7 +142,7 @@ matlabbatch{5}.spm.util.imcalc.options.mask = 0;
 matlabbatch{5}.spm.util.imcalc.options.interp = 1;
 matlabbatch{5}.spm.util.imcalc.options.dtype = 4;
 
-% 6. coreg: epi to t1w
+% 6. coreg: epi to t1w (this only changes header of the EPI image)
 matlabbatch{6}.spm.spatial.coreg.estimate.ref(1) = cfg_dep('Image Calculator: Imcalc Computed Image', substruct('.','val', '{}',{5}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','files'));
 matlabbatch{6}.spm.spatial.coreg.estimate.source(1) = cfg_dep('Realign & Unwarp: Unwarped Mean Image', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','meanuwr'));
 matlabbatch{6}.spm.spatial.coreg.estimate.other(1) = cfg_dep('Realign & Unwarp: Unwarped Images (Sess 1)', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','sess', '()',{1}, '.','uwrfiles'));
@@ -158,7 +163,12 @@ matlabbatch{8}.spm.spatial.smooth.data(1) = cfg_dep('Normalise: Write: Normalise
 matlabbatch{8}.spm.spatial.smooth.fwhm = [1 1 1]*EXP.fwhm_mm;
 matlabbatch{8}.spm.spatial.smooth.dtype = 0;
 matlabbatch{8}.spm.spatial.smooth.im = 0;
-matlabbatch{8}.spm.spatial.smooth.prefix = 's';
+if double(int64(EXP.fwhm)) == EXP.fwhm
+  prefix=['s',sprintf('%d',EXP.fwhm)];
+else
+  prefix=['s',sprintf('%0.1f',EXP.fwhm)];
+end
+matlabbatch{8}.spm.spatial.smooth.prefix = prefix;
 
 % 9. normalization of skullstripped t1w
 matlabbatch{9}.spm.spatial.normalise.write.subj.def(1) = cfg_dep('Segment: Forward Deformations', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','fordef', '()',{':'}));

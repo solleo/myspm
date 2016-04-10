@@ -72,7 +72,9 @@ if ~exist(fname_art,'file') || ~~overwrite
   fprintf(fid,'use_diff_global: %d\n',use_diff_global);
   fprintf(fid,'use_norms: %d\n',use_norms);
   fprintf(fid,'output_dir: %s\n',path1);
-  if ~isempty(mask_file),fprintf(fid,'mask_file: %s\n',deblank(mask_file(n1,:)));end
+  if ~isempty(mask_file)
+    fprintf(fid,'mask_file: %s\n',deblank(mask_file(n1,:)));
+  end
   fprintf(fid,'end\n');
   
   fprintf(fid,'session 1 image %s\n', EXP.fname_epi);

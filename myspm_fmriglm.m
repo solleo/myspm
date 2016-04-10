@@ -85,23 +85,6 @@ if isfield(EXP,'fname_ppi')
       EXP.cntrstMtx = [1; -1];
     end
   else
-%     load(EXP.fname_ppi{1}, 'PPI');
-%     EXP.reg(1).name = 'PHY';
-%     EXP.reg(1).val  = PPI.Y;
-%     EXP.cntrstMtx=[0 ];
-%     num_reg = numel(EXP.fname_ppi);
-%     PSYNAMES=EXP.ppi.NAMES;
-%     i=1;
-%     for k=1:num_reg
-%       load(EXP.fname_ppi{k}, 'PPI');
-%       EXP.reg(i).name = PSYNAMES{k};
-%       EXP.reg(i).val  = PPI.P;
-%       EXP.reg(i+1).name = [PSYNAMES{k},'xPHY'];
-%       EXP.reg(i+1).val  = PPI.ppi;
-%       i=i+2;
-%       EXP.cntrstMtx=[EXP.cntrstMtx 0 EXP.PPICntrstVec(k)];
-%     end
-%     EXP.cntrstMtx=[EXP.cntrstMtx 0 0]; % for interceptor 
   end
 end
 

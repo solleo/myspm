@@ -74,19 +74,12 @@ for i=1:numel(subjID)
   EXP.tprob = tprob;
   
   %% 2. let's run
-  %   if ~isfield(EXP,'TR_sec')
-  %   if ~isfield(EXP,'fname_dcm')
-  %     EXP.fname_dcm = ['/scr/vatikan1/skim/Tonotopy/main/dicom/SLET_3T/',...
-  %       '0014cmrr_mbep2d_lemon_32_rest.dcm'];
-  %   end
-  %   hdr = spm_dicom_headers(EXP.fname_dcm);
-  %   EXP.TR_sec = hdr{1}.RepetitionTime/1000;
-  %   end
   if ~isfield(EXP,'bpf1'),    EXP.bpf1 = [0 Inf]; end
   if ~isfield(EXP,'num_pcs'), EXP.num_pcs = 16; end
   if ~isfield(EXP,'detrend'), EXP.detrend = 1; end
   if ~isfield(EXP,'varnorm'), EXP.varnorm = 1; end
-  output_suffix=sprintf('_n%dd%dv%db%0.2f-%0.2f', EXP.num_pcs, EXP.detrend, EXP.varnorm, EXP.bpf1);
+  output_suffix=sprintf('_n%dd%dv%db%0.2f-%0.2f', ...
+    EXP.num_pcs, EXP.detrend, EXP.varnorm, EXP.bpf1);
   EXP.output_suffix = output_suffix;
   EXP = y_CompCor_PC(EXP);
   
@@ -137,7 +130,6 @@ fname_epi               = EXP.fname_epi;
 Nuisance_MaskFilename   = EXP.fname_masks;
 gm_mask                 = EXP.fname_gmmask;
 tprob                   = EXP.tprob;
-OutputName              = '';
 PCNum                   = EXP.num_pcs;
 IsNeedDetrend           = EXP.detrend;
 Band                    = EXP.bpf1;
@@ -212,7 +204,8 @@ end
 %Variance normalization
 if ~(exist('IsVarianceNormalization','var') && IsVarianceNormalization==0)
   %DEFAULT: 1 -- Detrend (demean) and variance normalization will be performed before PCA, as done in Behzadi, Y., Restom, K., Liau, J., Liu, T.T., 2007. A component based noise correction method (CompCor) for BOLD and perfusion based fMRI. Neuroimage 37, 90-101.
-  AllVolume = (AllVolume-repmat(mean(AllVolume),size(AllVolume,1),1))./repmat(std(AllVolume),size(AllVolume,1),1);
+  AllVolume = (AllVolume-repmat(mean(AllVolume),size(AllVolume,1),1)) ...
+    ./repmat(std(AllVolume),size(AllVolume,1),1);
   AllVolume(isnan(AllVolume))=0;
 end
 [path1,~,~] = fileparts(ADataDir);
@@ -232,14 +225,15 @@ if PCNum
     % "Scree plot" method
     subplot(312)
     ddy=gaussblur([0; 0; diff(diff(eigval))],3);
-    plot(ddy(1:50),'b'); xlabel('Order of eigenvalues'); ylabel({'Smoothed (fwhm=3)','change of slope'});
+    plot(ddy(1:50),'b'); xlabel('Order of eigenvalues'); 
+    ylabel({'Smoothed (fwhm=3)','change of slope'});
     ylim0=ylim; hold on; line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
-    %ylim(10*[-1 1]*abs(ddy(PCNum)))
     title([num2str(eigval(PCNum)),'@',num2str(PCNum),'-th PC'])
     xlim([1 50]);
     
     subplot(313);
-    plot(xvar,'b'); xlabel('Order of eigenvalues'); ylabel('Cumulative expalined variance(%)')
+    plot(xvar,'b'); xlabel('Order of eigenvalues'); 
+    ylabel('Cumulative expalined variance(%)')
     ylim0=ylim; hold on; line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
     title([num2str(xvar(PCNum)),'% with ',num2str(PCNum),'PCs',])
     xlim([1 50]);
@@ -249,13 +243,15 @@ if PCNum
   end
   PCs = U(:,1:PCNum);
   PCs = double(PCs);
-  save(fullfile(path1,['cc_wmcsf',tprob{3},output_suffix,'_eigenval.txt']), 'eigval', '-ASCII', '-DOUBLE','-TABS')
+  save(fullfile(path1,['cc_wmcsf',tprob{3},output_suffix,'_eigenval.txt']), ...
+    'eigval', '-ASCII', '-DOUBLE','-TABS')
 else
   % mean
   PCs = mean(AllVolume,2);
   eigval = [];
 end
-save(fullfile(path1,['cc_wmcsf',tprob{2},output_suffix,'_eigenvec.txt']), 'PCs', '-ASCII', '-DOUBLE','-TABS')
+save(fullfile(path1,['cc_wmcsf',tprob{2},output_suffix,'_eigenvec.txt']), ...
+  'PCs', '-ASCII', '-DOUBLE','-TABS')
 save(fullfile(path1,['cc_gm',tprob{1},'.txt']), 'gm', '-ASCII', '-DOUBLE','-TABS')
 fprintf('\nFinished Extracting principle components for CompCor Correction.\n');
 
@@ -274,7 +270,6 @@ if ~isfield(EXP,'nofigure')
   load(fullfile(path1,['cc_wmcsf',tprob{2},output_suffix,'_eigenvec.txt']),'PCs');
   
   % create figure
-  
   hf=figure('position',[2237         168         706        1009]);
   rp=R(:,end-6:end-1);
   subplot(611); plot(R(:,end)); ylabel('mov_{art}(mm)');

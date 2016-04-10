@@ -3,7 +3,7 @@ function EXP = myspm_smooth(EXP)
 %
 % EXP requires:
 %  .fnames
-%  .fhwm
+%  .fwhm
 %
 % (cc) 2015, sgKIM. 
 

@@ -83,7 +83,7 @@ normalise.write.subj.resample = fnames;
 normalise.write.woptions.bb = [-78 -112 -70; 78 76 85];
 if ~isfield(EXP,'vox_mm'), EXP.vox_mm=1; end
 normalise.write.woptions.vox = [1 1 1]*EXP.vox_mm;
-normalise.write.woptions.interp = EXP.interp; 
+normalise.write.woptions.interp = EXP.interp;
 
 matlabbatch={};
 matlabbatch{1}.spm.spatial.normalise = normalise;

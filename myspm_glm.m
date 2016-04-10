@@ -34,11 +34,11 @@ function EXP=myspm_glm (EXP)
 %  .cidx         [1x1] 1-based index for the contrast of interest
 %
 % optionally for myspm_result.m:
-% (.thresh.desc)    'Nx1'  'FWE','none', or 'cluster'(default)
-% (.thresh.alpha)   [1x1]  alpha level (default=0.05)
-% (.thresh.extent)  [1x1]  extent threshold of clusters in voxels (default=0)
-% (.thresh.clusterInitAlpha)   <1x1> cluster forming height threshold (default=0.001)
-% (.thresh.clusterInitExtent)  <1x1> cluster forming extent (in voxels) threshold (default=10)
+% (.thres.desc)    'Nx1'  'FWE','none', or 'cluster'(default)
+% (.thres.alpha)   [1x1]  alpha level (default=0.05)
+% (.thres.extent)  [1x1]  extent threshold of clusters in voxels (default=0)
+% (.thres.clusterInitAlpha)   <1x1> cluster forming height threshold (default=0.001)
+% (.thres.clusterInitExtent)  <1x1> cluster forming extent (in voxels) threshold (default=10)
 % (.fname_struct)   'Nx1' fullpath filename for background anatomical image for orthogonal slices
 %                         (defulat='$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz')
 % (.titlestr)       {1xNcont} Title text for SPM result report (default={'positive','negative'})
@@ -65,12 +65,8 @@ function EXP=myspm_glm (EXP)
 % (cc) 2015. sgKIM.  mailto://solleo@gmail.com  https://ggooo.wordpress.com/
 
 if nargin<1, help myspm_glm; return; end
-
-if ~isfield(EXP,'design')
-  design='mreg';
-else
-  design = EXP.design;
-end
+if ~isfield(EXP,'overwrite'), overwrite=0; else overwrite=EXP.overwrite; end
+if ~isfield(EXP,'design'),design='mreg'; else design = EXP.design; end
 spm('Defaults','fmri')
 
 matlabbatch={};
@@ -203,7 +199,7 @@ if ~isfield(EXP,'model_desc')
   EXP.model_desc=design;
 end
 
-if ~isfield(EXP,'dir_glm')&&isfield(EXP,'dir_base');
+if ~isfield(EXP,'dir_glm')%&&isfield(EXP,'dir_base');
   if ~isfield(EXP,'dir_prefix'), EXP.dir_prefix=''; end
   EXP.dir_glm=fullfile(EXP.dir_base,[EXP.dir_prefix,EXP.model_desc]);
 end
@@ -212,6 +208,11 @@ matlabbatch{1}.spm.stats.factorial_design.dir = {EXP.dir_glm};
 
 
 %% set up GLM
+if overwrite
+  if exist([EXP.dir_glm,'/SPM.mat'],'file')
+    unix(['mv ',EXP.dir_glm,'/SPM.mat /tmp/']);
+  end
+end
 save([EXP.dir_glm,'/glm_design.mat'], 'matlabbatch');
 spm_jobman('initcfg')
 spm_jobman('run', matlabbatch)
@@ -286,8 +287,5 @@ if isfield(EXP,'noresult')&&EXP.noresult
 else
   EXP = myspm_result(EXP);
 end
-
-%% Z-transform from T-maps
-
 
 end

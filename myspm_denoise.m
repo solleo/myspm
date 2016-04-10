@@ -1,10 +1,13 @@
 function EXP = myspm_denoise(EXP)
 % EXP = myspm_denoise(EXP)
 %
-% EXP requires a lot of things:
-%
+% EXP requires:
+%  .name_epi;
+%  .cov_idx    1x1 for rp+cc+art+gs
+%  .num
 % (.nofigure)
 %
+% 
 % (cc) 2015, sgKIM.
 
 % [TDOO] topological measures? degree map? efficiency boxplot?
@@ -46,7 +49,7 @@ end
 if ~isfield(EXP,'param_art')
   if isfield(EXP,'global_threshold') && isfield(EXP,'motion_threshold')
     EXP.param_art = sprintf('%0.1fstd_%0.1fmm', ...
-      EXP.global_threshold, EXP.motion_threshold);
+EXP.global_threshold, EXP.motion_threshold);
   else
     EXP.param_art='3.0std_0.5mm';
   end
@@ -61,7 +64,8 @@ if ~isfield(EXP,'name_rp')
   EXP.name_rp=['rp_',name1,'.txt'];
 end
 if ~isfield(EXP,'t1w_suffix')
-  EXP.t1w_suffix='Brain';
+  %EXP.t1w_suffix='Brain';
+  EXP.t1w_suffix='t1w';
 end
 if ~isfield(EXP,'fname_gmmask')
   EXP.fname_gmmask=['oc1t1w_',tprob{1},'.nii'];
@@ -87,7 +91,12 @@ for n=1:numel(subjID)
   fname_art=[path1,EXP.name_art];
   if ~exist(fname_art,'file')
     [~,res] = mydir(fullfile(path1,['art_regression_outliers_and_movement_',name1,'*']));
-    fname_art=res{1};
+    if isempty(res)
+      [~,res] = mydir(fullfile(path1,['art_out_mov_',name1,'*']));
+      fname_art=res{1};
+    else
+      fname_art=res{1};
+    end
   end
   load(fname_art,'R');
   art = R(:,1:end-7);

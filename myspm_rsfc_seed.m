@@ -1,4 +1,7 @@
 function EXP = myspm_rsfc_seed (EXP)
+% [NOTE] This code is to compute RSFC map in the native space, then transform
+% into MNI152 space
+%
 % EXP = myspm_rsfc_seed (EXP)
 %
 % EXP requires:
@@ -12,6 +15,8 @@ function EXP = myspm_rsfc_seed (EXP)
 % or
 %  .mask.names    {Jx1}
 %  .mask.query    'Nx1'   string to find filename, ${subj} will be replaced by subject's id
+% or
+%  .timeseries.query 'Nx1'   string to find filename, ${subj} will be replaced by subject's id
 %
 %  .fname_cc      'Nx1' filename of residual image
 % or 
