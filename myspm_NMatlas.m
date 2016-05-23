@@ -7,8 +7,8 @@ function [strc,S] = myspm_NMatlas(mni_xyz, isijk)
 % with no input arguments, will try to read a coordinate from SPM figure.
 % can be used with myspm_graph.m
 %
-% This function reads labels and returns structure name with the maximal
-% probability from [spm12]/tpm/labels_Neuromorphometrics.xml/.nii
+% This function reads labels and returns structure name with the maximal probability
+% from [spm12]/tpm/labels_Neuromorphometrics.xml/.nii
 % (*) Maximum probability tissue labels derived from the "MICCAI 2012 Grand Challenge and Workshop on Multi-Atlas Labeling" (https://masi.vuse.vanderbilt.edu/workshop2012/index.php/Challenge_Details). These data were released under the Creative Commons Attribution-NonCommercial (CC BY-NC) with no end date. Users should credit the MRI scans as originating from the OASIS project (http://www.oasis-brains.org/) and the labeled data as "provided by Neuromorphometrics, Inc. (http://Neuromorphometrics.com/) under academic subscription".  These references should be included in all workshop and final publications.
 %
 % (cc) 2015. sgKIM. solleo@gmail.com

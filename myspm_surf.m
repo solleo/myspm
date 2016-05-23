@@ -1,13 +1,16 @@
-function myspm_surf (EXP, suppress)
+function myspm_surf (EXP)
 % myspm_surf (EXP)
 %
 % EXP requires:
-%  .fname
+%  .fname_tmap
+%  .fname_clustermap
 % (.fstemplate)
 % (.dir_fig)
+% (.aparc) additional map with automatic parcellation boundaries: TRUE or FALSE
+% (.proj) projection method: "max", "avg", "mid"
 %
-% projects spm T-maps onto "fsaverage" surfaec, prints out lateral+medial
-% views with+without parcellation boundaries
+% projects T-maps (.fname_tmap) onto "fsaverage" surfaces, prints out lateral+medial views
+% masked by cluster ID map (.fname_clustermap)
 %
 % (cc) 2015, sgKIM
 
@@ -19,12 +22,11 @@ if ~isfield(EXP,'fstemplate')
 else
   fstemplate=EXP.fstemplate;
 end
-if ~exist('suppress','var'),suppress=0; end
 
-if ~isfield(EXP,'fname')
-  EXP.fname='spmT_0001.img';
+if ~isfield(EXP,'fname_tmap')
+  EXP.fname_tmap='spmT_0001.img';
 end
-fname = EXP.fname;
+fname = EXP.fname_tmap;
 if ~strcmp(fname(1),'/'), 
   fname=[pwd,'/',fname];
 end
@@ -72,26 +74,37 @@ end
 cd(path1);
 fname2=[path1,'/',name1,'_thres.nii'];
 [path1,~,~]=fileparts_gz(fname);
-[~,res1]= mydir([path1,'/sigclus_+1.*']);
-[~,res2]= mydir([path1,'/sigclus_-1.*']);
+if isfield(EXP,'fname_clustermap')
+  fnames = EXP.fname_clustermap;
+  if iscell(fnames) && (numel(fnames) == 2)
+    query1=fnames{1}; query2=fnames{2};
+  else
+    query1=fnames; query2=tempname;
+  end
+else
+  query1='sigclus_+1.*'; query2='sigclus_-1.*';
+end
+[~,res1]= mydir([path1,'/',query1]);
+[~,res2]= mydir([path1,'/',query2]);
 if isempty(res1) || isempty(res2)
 if isempty(res1) && ~isempty(res2)
   res1=res2;
 elseif ~isempty(res1) && isempty(res2)
   res2=res1;
 else
-  error('No significant clusters!');
+  error('No significant cluster found!');
 end
 end
 
-myunix(['FSLOUTPUTTYPE=NIFTI; fslmaths ',res1{end},' -add ',res2{end},' -bin -mul ',fname,' ',fname2],suppress)
+unix(['FSLOUTPUTTYPE=NIFTI; fslmaths ',res1{end},' -add ',res2{end}, ...
+  ' -bin -mul ',fname,' ',fname2])
 fname = fname2;
 
 hemi={'lh','rh'};
 for s=1:2
   fname_out=[path1,'/',hemi{s},'.',name1,'.mgz'];
-  myunix(['mri_vol2surf --mov ',fname,' --mni152reg --trgsubject ',fstemplate,' ', ...
-    ' --hemi ',hemi{s},' --o ',fname_out,' ',projarg],suppress);
+  unix(['mri_vol2surf --mov ',fname,' --mni152reg --trgsubject ', ...
+    fstemplate,' --hemi ',hemi{s},' --o ',fname_out,' ',projarg]);
   suffix={'','.aparc'};
   for a=1:A
     fname_tcl='/tmp/cmd.tcl';
@@ -115,5 +128,55 @@ for s=1:2
       ' -fminmax ',fmin,' ',fmax,' -overlay ',fname_out,' -tcl ',fname_tcl]);
   end
 end
-
 end
+
+function [path,name,ext]=fileparts_gz(filename)
+% [path,name,ext]=fileparts_gz(filename)
+% (cc) 2014, sgKIM.
+
+[path,name,ext] = fileparts(filename);
+if strcmp(ext,'.gz')
+  ext = [name(end-3:end),ext];
+  name = name(1:end-4);
+end
+end
+
+function [name,fullname] = mydir(str0)
+% [name,fullname] = mydir(str0, SessSorting)
+%
+% allows you to use mulitple wildcard queries
+% if SessSorting=1, sort the filenames so that "S9" comes before "S10"
+% (cc) 2015, sgKIM
+
+try txt = dir(str0);
+catch exception
+  name=[]; fullname=[];
+  return
+end
+name={};
+fullname={};
+j=0;
+for i=1:numel(txt)
+  if ~txt(i).isdir
+    j=j+1;
+    name{i} = txt(i).name;
+    [~,name1,ext1] = fileparts(name{i});
+    [path1,~,~] = fileparts_gz(str0);
+    if isempty(path1) || strcmp(path1,'./')
+      fullname{i}=fullfile(pwd,[name1,ext1]);
+    else
+      fullname{i}=fullfile(path1,[name1,ext1]);
+    end
+  end
+end
+
+if exist('SessSorting','var')
+  for i=1:numel(name)
+    idx = findstr(name{i},'_');
+    sessNum(i) = str2double(name{i}(2:(idx-1)));
+  end
+  [~,sortidx] = sort(sessNum);
+  name = name(sortidx);
+  fullname = fullname(sortidx);
+end
+end 
