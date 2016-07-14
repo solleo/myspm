@@ -85,7 +85,7 @@ elseif isfield(EXP,'files_query')
     if isempty(res)
       error(['File not found: ',prefix,EXP.subjID{n},suffix]);
     end
-    fnames{n,1}=[res{1},',1'];
+    fnames{n,1}=[res,',1'];
   end
 elseif isfield(EXP,'filenames')
   for n=1:size(EXP.filenames,1)

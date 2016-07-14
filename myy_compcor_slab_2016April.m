@@ -65,7 +65,6 @@ for i=1:numel(subjID)
     for c=1:3
       exp1.name_others{c}=[dir_7t,'/c',num2str(c),'UNI.nii'];
     end
-    % bring TPM into freesurfer space "fs"
     exp1.prefix='fs';
     if ~exist([dir_7t,'/fsc',num2str(c),'UNI.nii'],'file')
       myspm_coreg(exp1);
@@ -94,14 +93,14 @@ for i=1:numel(subjID)
     ls(EXP.fname_gmmask)
     
     %% 2. let's run y_compcor
-    if ~isfield(EXP,'bpf1'),    EXP.bpf1 = [1/128 Inf]; end
+    if ~isfield(EXP,'bpf1'),    EXP.bpf1 = [0 Inf]; end
     if ~isfield(EXP,'num_pcs'), EXP.num_pcs = 6; end
     output_suffix=sprintf('_n%df%0.2f-%0.2f', EXP.num_pcs, EXP.bpf1);
     EXP.output_suffix = output_suffix;
     [~,f1,e1]=fileparts(fname_epi);
     EXP.name_epi = [f1,e1];
+    %EXP.fname_rp = [dir_func,'rp_',f1(3:end),'.txt'];
     prefix = [EXP.fsd(end-2:end),num2str(r)];
-    %prefix = [EXP.fsd,num2str(r)];
     EXP.fname_rp = [dir_func,'rp_',prefix,'.txt'];
     EXP.epiprefix = prefix;
     ls(EXP.fname_rp)
@@ -114,7 +113,7 @@ for i=1:numel(subjID)
     %copy figures
     if isfield(EXP,'dir_figure')
       [~,~]=mkdir(EXP.dir_figure);
-      unix(['cp cc*',output_suffix,'*.png ',EXP.dir_figure,'/']);
+      unix(['cp cc*','_',output_suffix,'*.png ',EXP.dir_figure,'/']);
     end
   end % of run-loop
 end % of subj-loop
@@ -291,7 +290,7 @@ end
 
 if ~isfield(EXP,'nofigure')
   [~,res] = mydir(fullfile(path1,['art_out_mov_',EXP.epiprefix,'*']));
-  load (res,'R');
+  load (res{1},'R');
   load(fullfile(path1,['cc_',boldtxt,'_gs.txt']), 'gm');
   load(fullfile(path1,['cc_',boldtxt,'_eigvec',output_suffix,'.txt']),'PCs');
   rmparam = R(:,end-6:end);

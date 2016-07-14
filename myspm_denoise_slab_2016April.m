@@ -13,7 +13,9 @@ function EXP = myspm_denoise_slab(EXP)
 path0=pwd;
 subjID = fsss_subjID(EXP.subjID);
 TR_sec = EXP.TR_sec;
-
+if ~isfield(EXP,'bpf2')
+  EXP.bpf2 = [0.009, 0.08];
+end
 FilterBand = EXP.bpf2;
 sumstat=[];
 
@@ -30,21 +32,12 @@ if ~isfield(EXP,'tprob')
   end
 end
 tprob = EXP.tprob;
-if ~isfield(EXP,'num_pcs'), EXP.num_pcs=6;    end;
+if ~isfield(EXP,'num_pcs'), EXP.num_pcs=6;   end;
 if ~isfield(EXP,'detrend'), EXP.detrend=1;    end;
 if ~isfield(EXP,'varnorm'), EXP.varnorm=1;    end;
-if ~isfield(EXP,'bpf1'),    EXP.bpf1=[0 Inf]; end;
-%if ~isfield(EXP,'bpf1'), EXP.bpf1=[1/128 Inf]; end;
-if ~isfield(EXP,'bpf2'), EXP.bpf2=[1/128 Inf];end;
+if ~isfield(EXP,'bpf1'),    EXP.bpf1=[0,Inf]; end;
 if ~isfield(EXP,'param_cc')
-  % do CompCor only once! (max num of PC = 24; HARD-CODING!)
-  if EXP.num_pcs <24
-    isHigherCC = 1;
-    EXP.param_cc_higher = sprintf('_n%df%0.2f-%0.2f', 24, EXP.bpf1);
-  else
-    isHigherCC = 0;
-    EXP.param_cc = sprintf('_n%df%0.2f-%0.2f', EXP.num_pcs, EXP.bpf1);
-  end
+  EXP.param_cc = sprintf('n%df%0.2f-%0.2f', EXP.num_pcs, EXP.bpf1);
 end
 
 if ~isfield(EXP,'param_art')
@@ -67,17 +60,7 @@ num_subj = numel(subjID);
 for n=1:num_subj
   EXP.subjid = subjID{n};
   idx=strfind(EXP.name_epi,'?');
-  switch EXP.name_epi(1:2)
-    case {'au', 'ua'}
-      fnameprefix_func = [EXP.name_epi(3:idx-1),num2str(EXP.num_runs)];
-    otherwise
-      fnameprefix_func = [EXP.name_epi(1:idx-1),num2str(EXP.num_runs)];
-  end
-  fname_eigvec = ['cc_',fnameprefix_func,'_eigvec',EXP.param_cc,'.txt'];
-  if isHigherCC
-    fname_eigvec = ['cc_',fnameprefix_func,'_eigvec',EXP.param_cc_higher,'.txt'];
-  end
-  if ~exist(fname_eigvec,'file')
+  if ~exist(['cc_',EXP.name_epi(1:idx-1),num2str(EXP.num_runs),'_eigvec',EXP.param_cc,'.txt'],'file')
     exp1 = EXP;
     exp1.subjID =subjID{n};
     myy_compcor_slab(exp1);
@@ -85,7 +68,7 @@ for n=1:num_subj
   for r=1:EXP.num_runs
     idx=strfind(EXP.name_epi,'?');
     name_epi = [EXP.name_epi(1:idx-1),num2str(r),EXP.name_epi(idx+1:end)];
-    %[~,name1,~]=fileparts(name_epi);
+    [~,name1,~]=fileparts(name_epi);
     subjid = subjID{n};
     path1=[fullfile(EXP.dir_base,subjid),'/'];
     EXP.fname_epi = fullfile(path1, name_epi);
@@ -95,19 +78,23 @@ for n=1:num_subj
     nii = load_untouch_nii(EXP.fname_epi);
     d = nii.hdr.dime.dim(2:5);
     y = double(reshape(nii.img,[],d(4))');
+    if ~isfield(EXP,'name_cc')
+      if ~isfield(EXP,'bpf1'),    EXP.bpf1 = [0 Inf]; end
+      if ~isfield(EXP,'num_pcs'), EXP.num_pcs = 6; end
+      EXP.name_cc= ...
+        ['cc_',EXP.name_epi(1:idx-1),num2str(r),'_eigvec_',EXP.param_cc,'.txt'];
+    end
+    
     if EXP.num_pcs >0
-      cc = load([path1,fname_eigvec]);
-      if isHigherCC
-        cc = cc(:,[1:EXP.num_pcs]);
-      end
+      cc  = load([path1,EXP.name_cc]); % text file
     else
       cc = [];
     end
     if isfield(EXP,'name_art')
       fname_art=[path1,EXP.name_art];
     else
-      [~,res] = mydir(fullfile(path1,['art_out_mov_',fnameprefix_func,'*']));
-      fname_art=res;
+      [~,res] = mydir(fullfile(path1,['art_out_mov_',name1,'*']));
+      fname_art=res{1};
     end
     load(fname_art,'R');
     rmparam = R(:,(end-6):(end-1));

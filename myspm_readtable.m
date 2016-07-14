@@ -1,7 +1,9 @@
 function tab = myspm_readtable(fname)
 if ~exist('fname','var')
-  fname=mydir(['spm*.csv']);
-  fname=fname{end};
+  fname=mydir('spm*.csv');
+  if ~ischar(fname)
+    fname=fname{end};
+  end
 end
 fid = fopen(fname,'r');
 tab_fmt = '%s %s %f %s %f %f %f %f %f %f %f %f %f %s %f';
