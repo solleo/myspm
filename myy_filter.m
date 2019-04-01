@@ -12,23 +12,24 @@ function y = myy_filter(y, TR, Band)
 % (cc) 2015, sgKIM.  solleo@gmail.com   https://ggooo.wordpress.com
 
 demean=0;
+y = denan(y);
 if numel(y) > 91*109*91*50
-  CUTNUMBER = 20;
-  % Filtering segmented for saving memory
-  fprintf('\n#Filtering...');
-  SegmentLength = ceil(size(y,2) / CUTNUMBER);
-  for iCut=1:CUTNUMBER
-    if iCut~=CUTNUMBER
-      Segment = (iCut-1)*SegmentLength+1 : iCut*SegmentLength;
-    else
-      Segment = (iCut-1)*SegmentLength+1 : size(y,2);
-    end
-    y(:,Segment) = y_IdealFilter(y(:,Segment), TR, Band, demean);
-    fprintf('.');
-  end
-  fprintf('\n');
+CUTNUMBER = 20;
+% Filtering segmented for saving memory
+fprintf('\n#Filtering...');
+SegmentLength = ceil(size(y,2) / CUTNUMBER);
+for iCut=1:CUTNUMBER
+if iCut~=CUTNUMBER
+Segment = (iCut-1)*SegmentLength+1 : iCut*SegmentLength;
 else
-  y = y_IdealFilter(y, TR, Band, demean);
+Segment = (iCut-1)*SegmentLength+1 : size(y,2);
+end
+y(:,Segment) = y_IdealFilter(y(:,Segment), TR, Band, demean);
+fprintf('.');
+end
+fprintf('\n');
+else
+y = y_IdealFilter(y, TR, Band, demean);
 end
 end
 
@@ -59,15 +60,15 @@ HighCutoff_LowPass = Band(2);
 
 % Get the frequency index
 if (LowCutoff_HighPass >= sampleFreq/2) % All high stop
-  idxLowCutoff_HighPass = paddedLength/2 + 1;
+idxLowCutoff_HighPass = paddedLength/2 + 1;
 else % high pass, such as freq > 0.01 Hz
-  idxLowCutoff_HighPass = ceil(LowCutoff_HighPass * paddedLength * SamplePeriod + 1);
+idxLowCutoff_HighPass = ceil(LowCutoff_HighPass * paddedLength * SamplePeriod + 1);
 end
 
 if (HighCutoff_LowPass>=sampleFreq/2)||(HighCutoff_LowPass==0) % All low pass
-  idxHighCutoff_LowPass = paddedLength/2 + 1;
+idxHighCutoff_LowPass = paddedLength/2 + 1;
 else % Low pass, such as freq < 0.08 Hz
-  idxHighCutoff_LowPass = fix(HighCutoff_LowPass * paddedLength * SamplePeriod + 1);
+idxHighCutoff_LowPass = fix(HighCutoff_LowPass * paddedLength * SamplePeriod + 1);
 end
 
 FrequencyMask = zeros(paddedLength,1);
@@ -85,6 +86,6 @@ Data(FrequencyMask==0,:) = 0;
 Data = ifft(Data);
 Data_Filtered = Data(1:sampleLength,:);
 if exist('demean','var')&&(demean==0)
-  Data_Filtered = Data_Filtered + DataMean;
+Data_Filtered = Data_Filtered + DataMean;
 end
 end

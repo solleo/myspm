@@ -36,9 +36,9 @@ myspm_coreg(exp1);
 
 % mask it with GM>0.5
 EXP.fname_atlas = [path1,'o',name3,'_in_',name1,'.nii'];
-gm = load_untouch_nii ([path1,'oc1t1w.nii']); % in integer format!
+gm = load_uns_nii([path1,'oc1t1w.nii']); % in integer format!
 gm.img = zeroone(gm.img);
-atlas = load_untouch_nii (EXP.fname_atlas);
+atlas = load_uns_nii(EXP.fname_atlas);
 atlas.img = uint16((gm.img>0.5) .* atlas.img);
 atlas.hdr.dime.datatype=512;
 save_untouch_nii(atlas, EXP.fname_atlas);

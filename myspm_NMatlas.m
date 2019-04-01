@@ -15,7 +15,7 @@ function [strc,S] = myspm_NMatlas(mni_xyz, isijk)
 
 %%
 if ~exist('isijk','var')
-  isijk=0;
+isijk=0;
 end
 
 %% read .XML files (from spm12 directory? or somewhere else?)
@@ -30,34 +30,34 @@ s = xml2struct('/tmp/labels_Neuromorphometrics.xml');
 S=[];
 NL=numel(s.atlas.data.label);
 for i=1:NL
-  S.label(i) = str2double(s.atlas.data.label{i}.index.Text);
-  S.name{i}  = s.atlas.data.label{i}.name.Text;
+S.label(i) = str2double(s.atlas.data.label{i}.index.Text);
+S.name{i}  = s.atlas.data.label{i}.name.Text;
 end
 
 niiFNAME=fullfile(srcpath,'/labels_Neuromorphometrics.nii');
 
 %% convert xyz coordinate to ijk coordinate
 if ~isijk
-  if nargin == 0
-    hReg= evalin('base','hReg;');
-    xSPM= evalin('base','xSPM;');
-    if numel(hReg) == 1
-      xyz = spm_XYZreg('GetCoords',hReg);
-    else
-      xyz = hReg;
-    end
-  else
-    xyz = mni_xyz';
-  end
-  try xSPM.XYZmm
-    [xyz,i] = spm_XYZreg('NearestXYZ', xyz ,xSPM.XYZmm);
-  catch ME
-    xyz = mni_xyz';
-  end
-  ijk = round(xyz2ijk(xyz, niiFNAME))';
+if nargin == 0
+hReg= evalin('base','hReg;');
+xSPM= evalin('base','xSPM;');
+if numel(hReg) == 1
+xyz = spm_XYZreg('GetCoords',hReg);
 else
-  ijk = mni_xyz';
-  xyz = round(ijk2xyz(ijk', niiFNAME))';
+xyz = hReg;
+end
+else
+xyz = mni_xyz';
+end
+try xSPM.XYZmm
+[xyz,i] = spm_XYZreg('NearestXYZ', xyz ,xSPM.XYZmm);
+catch ME
+xyz = mni_xyz';
+end
+ijk = round(xyz2ijk(xyz, niiFNAME))';
+else
+ijk = mni_xyz';
+xyz = round(ijk2xyz(ijk', niiFNAME))';
 end
 
 
@@ -69,19 +69,19 @@ label = spm_get_data(P, ijk);
 strc.name='null';
 strc.prob=100;
 if numel(label)==1
-  idx=find(S.label==label);
-  if ~isempty(idx)
-    strc.name = S.name{idx};
-    strc.prob=100;
-  end
+idx=find(S.label==label);
+if ~isempty(idx)
+strc.name = S.name{idx};
+strc.prob=100;
+end
 elseif numel(label)>1
-  % discard zeros from the labels
-  label(label==0)=[];
-  idx = mode(label);
-  if ~isempty(idx) && ~isnan(idx)
-    strc.name = S.name{S.label == idx};
-    strc.prob = round(mean(label==idx)*100);
-  end
+% discard zeros from the labels
+label(label==0)=[];
+idx = mode(label);
+if ~isempty(idx) && ~isnan(idx)
+strc.name = S.name{S.label == idx};
+strc.prob = round(mean(label==idx)*100);
+end
 end
 
 strc.mni_xyz = xyz';
@@ -123,29 +123,29 @@ function [ s ] = xml2struct( file )
 % Modified by X. Mo, University of Wisconsin, 12-5-2012
 
 if (nargin < 1)
-  clc;
-  help xml2struct
-  return
+clc;
+help xml2struct
+return
 end
 
 if isa(file, 'org.apache.xerces.dom.DeferredDocumentImpl') || isa(file, 'org.apache.xerces.dom.DeferredElementImpl')
-  % input is a java xml object
-  xDoc = file;
+% input is a java xml object
+xDoc = file;
 else
-  %check for existance
-  if (exist(file,'file') == 0)
-    %Perhaps the xml extension was omitted from the file name. Add the
-    %extension and try again.
-    if (isempty(strfind(file,'.xml')))
-      file = [file '.xml'];
-    end
-    
-    if (exist(file,'file') == 0)
-      error(['The file ' file ' could not be found']);
-    end
-  end
-  %read the xml file
-  xDoc = xmlread(file);
+%check for existance
+if (exist(file,'file') == 0)
+%Perhaps the xml extension was omitted from the file name. Add the
+%extension and try again.
+if (isempty(strfind(file,'.xml')))
+file = [file '.xml'];
+end
+
+if (exist(file,'file') == 0)
+error(['The file ' file ' could not be found']);
+end
+end
+%read the xml file
+xDoc = xmlread(file);
 end
 
 %parse xDoc into a MATLAB structure
@@ -159,67 +159,67 @@ function [children,ptext,textflag] = parseChildNodes(theNode)
 children = struct;
 ptext = struct; textflag = 'Text';
 if hasChildNodes(theNode)
-  childNodes = getChildNodes(theNode);
-  numChildNodes = getLength(childNodes);
-  
-  for count = 1:numChildNodes
-    theChild = item(childNodes,count-1);
-    [text,name,attr,childs,textflag] = getNodeData(theChild);
-    
-    if (~strcmp(name,'#text') && ~strcmp(name,'#comment') && ~strcmp(name,'#cdata_dash_section'))
-      %XML allows the same elements to be defined multiple times,
-      %put each in a different cell
-      if (isfield(children,name))
-        if (~iscell(children.(name)))
-          %put existsing element into cell format
-          children.(name) = {children.(name)};
-        end
-        index = length(children.(name))+1;
-        %add new element
-        children.(name){index} = childs;
-        if(~isempty(fieldnames(text)))
-          children.(name){index} = text;
-        end
-        if(~isempty(attr))
-          children.(name){index}.('Attributes') = attr;
-        end
-      else
-        %add previously unknown (new) element to the structure
-        children.(name) = childs;
-        if(~isempty(text) && ~isempty(fieldnames(text)))
-          children.(name) = text;
-        end
-        if(~isempty(attr))
-          children.(name).('Attributes') = attr;
-        end
-      end
-    else
-      ptextflag = 'Text';
-      if (strcmp(name, '#cdata_dash_section'))
-        ptextflag = 'CDATA';
-      elseif (strcmp(name, '#comment'))
-        ptextflag = 'Comment';
-      end
-      
-      %this is the text in an element (i.e., the parentNode)
-      if (~isempty(regexprep(text.(textflag),'[\s]*','')))
-        if (~isfield(ptext,ptextflag) || isempty(ptext.(ptextflag)))
-          ptext.(ptextflag) = text.(textflag);
-        else
-          %what to do when element data is as follows:
-          %<element>Text <!--Comment--> More text</element>
-          
-          %put the text in different cells:
-          % if (~iscell(ptext)) ptext = {ptext}; end
-          % ptext{length(ptext)+1} = text;
-          
-          %just append the text
-          ptext.(ptextflag) = [ptext.(ptextflag) text.(textflag)];
-        end
-      end
-    end
-    
-  end
+childNodes = getChildNodes(theNode);
+numChildNodes = getLength(childNodes);
+
+for count = 1:numChildNodes
+theChild = item(childNodes,count-1);
+[text,name,attr,childs,textflag] = getNodeData(theChild);
+
+if (~strcmp(name,'#text') && ~strcmp(name,'#comment') && ~strcmp(name,'#cdata_dash_section'))
+%XML allows the same elements to be defined multiple times,
+%put each in a different cell
+if (isfield(children,name))
+if (~iscell(children.(name)))
+%put existsing element into cell format
+children.(name) = {children.(name)};
+end
+index = length(children.(name))+1;
+%add new element
+children.(name){index} = childs;
+if(~isempty(fieldnames(text)))
+children.(name){index} = text;
+end
+if(~isempty(attr))
+children.(name){index}.('Attributes') = attr;
+end
+else
+%add previously unknown (new) element to the structure
+children.(name) = childs;
+if(~isempty(text) && ~isempty(fieldnames(text)))
+children.(name) = text;
+end
+if(~isempty(attr))
+children.(name).('Attributes') = attr;
+end
+end
+else
+ptextflag = 'Text';
+if (strcmp(name, '#cdata_dash_section'))
+ptextflag = 'CDATA';
+elseif (strcmp(name, '#comment'))
+ptextflag = 'Comment';
+end
+
+%this is the text in an element (i.e., the parentNode)
+if (~isempty(regexprep(text.(textflag),'[\s]*','')))
+if (~isfield(ptext,ptextflag) || isempty(ptext.(ptextflag)))
+ptext.(ptextflag) = text.(textflag);
+else
+%what to do when element data is as follows:
+%<element>Text <!--Comment--> More text</element>
+
+%put the text in different cells:
+% if (~iscell(ptext)) ptext = {ptext}; end
+% ptext{length(ptext)+1} = text;
+
+%just append the text
+ptext.(ptextflag) = [ptext.(ptextflag) text.(textflag)];
+end
+end
+end
+
+end
 end
 end
 
@@ -235,18 +235,18 @@ name = strrep(name, '.', '_dot_');
 
 attr = parseAttributes(theNode);
 if (isempty(fieldnames(attr)))
-  attr = [];
+attr = [];
 end
 
 %parse child nodes
 [childs,text,textflag] = parseChildNodes(theNode);
 
 if (isempty(fieldnames(childs)) && isempty(fieldnames(text)))
-  %get the data of any childless nodes
-  % faster than if any(strcmp(methods(theNode), 'getData'))
-  % no need to try-catch (?)
-  % faster than text = char(getData(theNode));
-  text.(textflag) = toCharArray(getTextContent(theNode))';
+%get the data of any childless nodes
+% faster than if any(strcmp(methods(theNode), 'getData'))
+% no need to try-catch (?)
+% faster than text = char(getData(theNode));
+text.(textflag) = toCharArray(getTextContent(theNode))';
 end
 
 end
@@ -257,23 +257,23 @@ function attributes = parseAttributes(theNode)
 
 attributes = struct;
 if hasAttributes(theNode)
-  theAttributes = getAttributes(theNode);
-  numAttributes = getLength(theAttributes);
-  
-  for count = 1:numAttributes
-    %attrib = item(theAttributes,count-1);
-    %attr_name = regexprep(char(getName(attrib)),'[-:.]','_');
-    %attributes.(attr_name) = char(getValue(attrib));
-    
-    %Suggestion of Adrian Wanner
-    str = toCharArray(toString(item(theAttributes,count-1)))';
-    k = strfind(str,'=');
-    attr_name = str(1:(k(1)-1));
-    attr_name = strrep(attr_name, '-', '_dash_');
-    attr_name = strrep(attr_name, ':', '_colon_');
-    attr_name = strrep(attr_name, '.', '_dot_');
-    attributes.(attr_name) = str((k(1)+2):(end-1));
-  end
+theAttributes = getAttributes(theNode);
+numAttributes = getLength(theAttributes);
+
+for count = 1:numAttributes
+%attrib = item(theAttributes,count-1);
+%attr_name = regexprep(char(getName(attrib)),'[-:.]','_');
+%attributes.(attr_name) = char(getValue(attrib));
+
+%Suggestion of Adrian Wanner
+str = toCharArray(toString(item(theAttributes,count-1)))';
+k = strfind(str,'=');
+attr_name = str(1:(k(1)-1));
+attr_name = strrep(attr_name, '-', '_dash_');
+attr_name = strrep(attr_name, ':', '_colon_');
+attr_name = strrep(attr_name, '.', '_dot_');
+attributes.(attr_name) = str((k(1)+2):(end-1));
+end
 end
 end
 
@@ -293,19 +293,19 @@ function xyz = ijk2xyz(ijk, nii)
 
 
 if ischar(nii)
-  nii = load_untouch_nii(nii);
+nii = load_uns_nii(nii);
 end
 
 T=[nii.hdr.hist.srow_x; nii.hdr.hist.srow_y; nii.hdr.hist.srow_z; 0 0 0 1];
 
 if numel(ijk) == 3
-  if size(ijk,1) > size(ijk,2)
-    ijk=ijk';
-  end
+if size(ijk,1) > size(ijk,2)
+ijk=ijk';
+end
 else
-  if size(ijk,1) < size(ijk,2)
-    ijk=ijk';
-  end
+if size(ijk,1) < size(ijk,2)
+ijk=ijk';
+end
 end
 
 xyz = (T)*[(ijk-1) ones(size(ijk,1),1) ]';
@@ -329,19 +329,19 @@ end
 function ijk = xyz2ijk(xyz, nii)
 
 if ischar(nii)
-  hdr= load_untouch_header_only(nii);
+hdr= load_untouch_header_only(nii);
 else
-  hdr = nii.hdr;
+hdr = nii.hdr;
 end
 
 if numel(xyz) == 3
-  if size(xyz,1) > size(xyz,2)
-    xyz=xyz';
-  end
+if size(xyz,1) > size(xyz,2)
+xyz=xyz';
+end
 else
-  if size(xyz,1) < size(xyz,2)
-    xyz=xyz';
-  end
+if size(xyz,1) < size(xyz,2)
+xyz=xyz';
+end
 end
 
 T=[hdr.hist.srow_x; hdr.hist.srow_y; hdr.hist.srow_z; 0 0 0 1];

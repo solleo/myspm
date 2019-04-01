@@ -3,10 +3,10 @@ function myspm_print (fig_fname, fig_handle, fig_type)
 error('IT DOES NOT WORK AS YOU THINK!!!!');
 
 if ~exist('fig_handle','var')
-    fig_handel=gcf;
+fig_handel=gcf;
 end
 if ~exist('fig_type','var')
-    fig_type='jpg';
+fig_type='jpg';
 end
 
 matlabbatch=cell(1);

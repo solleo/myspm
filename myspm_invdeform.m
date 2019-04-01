@@ -1,5 +1,5 @@
 function myspm_invdeform(EXP)
-% deforms 'signicifant' clusters into (unresampled-but-coregistered-to-T1w)
+% deforms 'signicifant' clusters into (not-resampled-but-coregistered-to-T1w)
 % -EPI space and resamples using nearest-neighbour interpolation.
 %
 % EXP requires:
@@ -51,7 +51,7 @@ function mri = MRIread(fstring,headeronly)
 %     by finding a file on disk called fstring.ext, where ext can be
 %     either mgh, mgz, img, bhdr, nii, or nii.gz
 %  2. MGH file. Eg, f.mgh or f.mgz
-%  3. BVolume HDR file. Eg, f.bhdr 
+%  3. BVolume HDR file. Eg, f.bhdr
 %  4. Analyze, eg, f.img or f.hdr
 %  5. NIFTI, eg, f.nii or f.nii.gz
 %
@@ -66,12 +66,12 @@ function mri = MRIread(fstring,headeronly)
 %
 % bear in mind that mri.vox(j+1, i+1, k+1) = mri(i,j,k)
 %
-% where mri(i,j,k) refers to indices as they are seen in scuba, tkmedit 
+% where mri(i,j,k) refers to indices as they are seen in scuba, tkmedit
 % or used in binaries such as mri_convert
 %
 % This happens because matlab uses row major (ie, the "fasted" dim
-% goes from one row to the next), whereas C uses col major. 
-% So if you simply load in a matrix and view it with imagesc, 
+% goes from one row to the next), whereas C uses col major.
+% So if you simply load in a matrix and view it with imagesc,
 % it will appear to be transposed.
 %
 % If headeronly=1, then the pixel data are not read in.
@@ -129,107 +129,107 @@ mri.bhdr = []; % empty be default
 %-------------- MGH ------------------------%
 switch(fmt)
   case {'mgh','mgz'}
-  [mri.vol, M, mr_parms, volsz] = load_mgh(fspec,[],[],headeronly);
-  if(isempty(M))
-    fprintf('ERROR: loading %s as MGH\n',fspec);
-    mri = [];
-    return;
-  end
-  if(~headeronly)
-    mri.vol = permute(mri.vol,[2 1 3 4]);
-    volsz = size(mri.vol);
-  else
-    mri.vol = [];
-    volsz(1:2) = [volsz(2) volsz(1)];
-  end
-  tr = mr_parms(1);
-  flip_angle = mr_parms(2);
-  te = mr_parms(3);
-  ti = mr_parms(4);
-%--------------- bshort/bfloat -----------------------%  
- case {'bhdr'}
-  if(~headeronly)
-    [mri.vol bmri] = fast_ldbslice(fstem);  
-    if(isempty(mri.vol))
-      fprintf('ERROR: loading %s as bvolume\n',fspec);
+    [mri.vol, M, mr_parms, volsz] = load_mgh(fspec,[],[],headeronly);
+    if(isempty(M))
+      fprintf('ERROR: loading %s as MGH\n',fspec);
       mri = [];
       return;
     end
-    volsz = size(mri.vol);
-  else
-    mri.vol = [];
-    bmri = fast_ldbhdr(fstem);
-    if(isempty(bmri))
-      fprintf('ERROR: loading %s as bvolume\n',fspec);
+    if(~headeronly)
+      mri.vol = permute(mri.vol,[2 1 3 4]);
+      volsz = size(mri.vol);
+    else
+      mri.vol = [];
+      volsz(1:2) = [volsz(2) volsz(1)];
+    end
+    tr = mr_parms(1);
+    flip_angle = mr_parms(2);
+    te = mr_parms(3);
+    ti = mr_parms(4);
+    %--------------- bshort/bfloat -----------------------%
+  case {'bhdr'}
+    if(~headeronly)
+      [mri.vol bmri] = fast_ldbslice(fstem);
+      if(isempty(mri.vol))
+        fprintf('ERROR: loading %s as bvolume\n',fspec);
+        mri = [];
+        return;
+      end
+      volsz = size(mri.vol);
+    else
+      mri.vol = [];
+      bmri = fast_ldbhdr(fstem);
+      if(isempty(bmri))
+        fprintf('ERROR: loading %s as bvolume\n',fspec);
+        mri = [];
+        return;
+      end
+      [nslices nrows ncols ntp] = fmri_bvoldim(fstem);
+      volsz = [nrows ncols nslices ntp];
+    end
+    [nrows ncols ntp fs ns endian bext] = fmri_bfiledim(fstem);
+    mri.srcbext = bext;
+    M = bmri.T;
+    tr = bmri.tr;
+    flip_angle = bmri.flip_angle;
+    te = bmri.te;
+    ti = bmri.ti;
+    mri.bhdr = bmri;
+    %------- analyze -------------------------------------
+  case {'img'}
+    hdr = load_analyze(fspec,headeronly);
+    if(isempty(hdr))
+      fprintf('ERROR: loading %s as analyze\n',fspec);
       mri = [];
       return;
     end
-    [nslices nrows ncols ntp] = fmri_bvoldim(fstem);
-    volsz = [nrows ncols nslices ntp];
-  end
-  [nrows ncols ntp fs ns endian bext] = fmri_bfiledim(fstem);
-  mri.srcbext = bext;
-  M = bmri.T;
-  tr = bmri.tr;
-  flip_angle = bmri.flip_angle;
-  te = bmri.te;
-  ti = bmri.ti;
-  mri.bhdr = bmri;
-%------- analyze -------------------------------------   
- case {'img'}
-  hdr = load_analyze(fspec,headeronly);
-  if(isempty(hdr))
-    fprintf('ERROR: loading %s as analyze\n',fspec);
+    volsz = hdr.dime.dim(2:end);
+    indnz = find(volsz~=0);
+    volsz = volsz(indnz);
+    volsz = volsz(:)'; % just make sure it's a row vect
+    if(~headeronly) mri.vol = permute(hdr.vol,[2 1 3 4]);
+    else            mri.vol = [];
+    end
+    volsz([1 2]) = volsz([2 1]); % Make consistent. No effect when rows=cols
+    tr = 1000*hdr.dime.pixdim(5); % msec
+    flip_angle = 0;
+    te = 0;
+    ti = 0;
+    hdr.vol = []; % already have it above, so clear it
+    M = vox2ras_1to0(hdr.vox2ras);
+    mri.analyzehdr = hdr;
+    %------- nifti nii -------------------------------------
+  case {'nii','nii.gz'}
+    hdr = load_nifti(fspec,headeronly);
+    if(isempty(hdr))
+      fprintf('ERROR: loading %s as analyze\n',fspec);
+      mri = [];
+      return;
+    end
+    volsz = hdr.dim(2:end);
+    indnz = find(volsz~=0);
+    volsz = volsz(indnz);
+    volsz = volsz(:)'; % just make sure it's a row vect
+    % This handles the case where data has > 4 dims
+    % Just puts all data into dim 4.
+    if(~headeronly)
+      hdr.vol = reshape(hdr.vol,[volsz(1) volsz(2) volsz(3) prod(volsz(4:end))]);
+      mri.vol = permute(hdr.vol,[2 1 3 4]);
+    else mri.vol = [];
+    end
+    volsz([1 2]) = volsz([2 1]); % Make consistent. No effect when rows=cols
+    tr = hdr.pixdim(5); % already msec
+    flip_angle = 0;
+    te = 0;
+    ti = 0;
+    hdr.vol = []; % already have it above, so clear it
+    M = hdr.vox2ras;
+    mri.niftihdr = hdr;
+    %---------------------------------------------------
+  otherwise
+    fprintf('ERROR: format %s not supported\n',fmt);
     mri = [];
     return;
-  end
-  volsz = hdr.dime.dim(2:end);
-  indnz = find(volsz~=0);
-  volsz = volsz(indnz);
-  volsz = volsz(:)'; % just make sure it's a row vect  
-  if(~headeronly) mri.vol = permute(hdr.vol,[2 1 3 4]);
-  else            mri.vol = [];
-  end
-  volsz([1 2]) = volsz([2 1]); % Make consistent. No effect when rows=cols
-  tr = 1000*hdr.dime.pixdim(5); % msec
-  flip_angle = 0;
-  te = 0;
-  ti = 0;
-  hdr.vol = []; % already have it above, so clear it 
-  M = vox2ras_1to0(hdr.vox2ras);
-  mri.analyzehdr = hdr;
-%------- nifti nii -------------------------------------   
- case {'nii','nii.gz'}
-  hdr = load_nifti(fspec,headeronly);
-  if(isempty(hdr))
-    fprintf('ERROR: loading %s as analyze\n',fspec);
-    mri = [];
-    return;
-  end
-  volsz = hdr.dim(2:end);
-  indnz = find(volsz~=0);
-  volsz = volsz(indnz);
-  volsz = volsz(:)'; % just make sure it's a row vect
-  % This handles the case where data has > 4 dims
-  % Just puts all data into dim 4.
-  if(~headeronly) 
-    hdr.vol = reshape(hdr.vol,[volsz(1) volsz(2) volsz(3) prod(volsz(4:end))]);
-    mri.vol = permute(hdr.vol,[2 1 3 4]);
-  else mri.vol = [];
-  end
-  volsz([1 2]) = volsz([2 1]); % Make consistent. No effect when rows=cols
-  tr = hdr.pixdim(5); % already msec
-  flip_angle = 0;
-  te = 0;
-  ti = 0;
-  hdr.vol = []; % already have it above, so clear it 
-  M = hdr.vox2ras;
-  mri.niftihdr = hdr;
-%--------------------------------------------------- 
- otherwise
-  fprintf('ERROR: format %s not supported\n',fmt);
-  mri = [];
-  return;
 end
 %--------------------------------------%
 
@@ -247,8 +247,8 @@ mri.ti  = ti;
 % elements of the structure, it will not be reflected in the output
 % volume. Also note that vox2ras still maps Col-Row-Slice and not
 % Row-Col-Slice.  Make sure to take this into account when indexing
-% into matlab volumes (which are RCS). 
-mri.vox2ras0 = M; 
+% into matlab volumes (which are RCS).
+mri.vox2ras0 = M;
 
 % Dimensions not redundant when using header only
 volsz(length(volsz)+1:4) = 1; % Make sure all dims are represented
@@ -295,7 +295,7 @@ mri.c_s = c(3);
 %-------- The stuff here is for convenience --------------
 
 % 1-based vox2ras. Good for doing transforms in matlab
-mri.vox2ras1 = vox2ras_0to1(M); 
+mri.vox2ras1 = vox2ras_0to1(M);
 
 % Matrix of direction cosines
 mri.Mdc = [M(1:3,1)/mri.xsize M(1:3,2)/mri.ysize M(1:3,3)/mri.zsize];
@@ -304,8 +304,8 @@ mri.Mdc = [M(1:3,1)/mri.xsize M(1:3,2)/mri.ysize M(1:3,3)/mri.zsize];
 mri.volres = [mri.ysize mri.xsize mri.zsize];
 
 % Have to swap rows and columns back
-voldim = [mri.volsize(2) mri.volsize(1) mri.volsize(3)]; %[ncols nrows nslices] 
-volres = [mri.volres(2)  mri.volres(1)  mri.volres(3)];  %[dcol drow dslice] 
+voldim = [mri.volsize(2) mri.volsize(1) mri.volsize(3)]; %[ncols nrows nslices]
+volres = [mri.volres(2)  mri.volres(1)  mri.volres(3)];  %[dcol drow dslice]
 mri.tkrvox2ras = vox2ras_tkreg(voldim,volres);
 
 

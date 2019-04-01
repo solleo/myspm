@@ -45,6 +45,6 @@ function myspm_check_localMax(EXP)
 %   scatter(d(1)-coord_ijk0(1),coord_ijk0(2),100,'kx','linewidth',2); % initial coord
 %   scatter(d(1)-coord_ijk(1), coord_ijk(2),100,'wo','linewidth',2);  % nearest local maximum
 %   axis image; set(gca,'ydir','nor');%,'xdir','rev');
-  
-  
+
+
 end

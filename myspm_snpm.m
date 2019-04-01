@@ -5,85 +5,85 @@ matlabbatch{1}.spm.tools.snpm.des.TwoSampT.DesignFile = 'snpm_bch_ui_TwoSampT';
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.dir = {'/scr/vatikan3/APConn/fnirt_spm/SnPM'};
 %%
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.scans1 = {
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2001.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2003.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2004.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2005.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2006.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2007.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2008.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2009.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2010.nii,1'
-                                                     };
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2001.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2003.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2004.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2005.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2006.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2007.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2008.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2009.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_2010.nii,1'
+};
 %%
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.scans2 = {
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3002.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3003.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3004.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3005.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3006.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3007.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3009.nii,1'
-                                                     '/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3010.nii,1'
-                                                     };
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3002.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3003.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3004.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3005.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3006.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3007.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3009.nii,1'
+'/scr/vatikan3/APConn/fnirt_spm/data/rcmap_fnirted_3010.nii,1'
+};
 %%
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.cov(1).c = [22
-                                                       20
-                                                       25
-                                                       24
-                                                       29
-                                                       25
-                                                       24
-                                                       38
-                                                       25
-                                                       26
-                                                       25
-                                                       23
-                                                       28
-                                                       28
-                                                       32
-                                                       24
-                                                       29];
+20
+25
+24
+29
+25
+24
+38
+25
+26
+25
+23
+28
+28
+32
+24
+29];
 %%
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.cov(1).cname = 'age';
 %%
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.cov(2).c = [0
-                                                       0
-                                                       1
-                                                       1
-                                                       0
-                                                       1
-                                                       1
-                                                       0
-                                                       1
-                                                       1
-                                                       1
-                                                       0
-                                                       0
-                                                       1
-                                                       1
-                                                       0
-                                                       1];
+0
+1
+1
+0
+1
+1
+0
+1
+1
+1
+0
+0
+1
+1
+0
+1];
 %%
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.cov(2).cname = 'sex';
 %%
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.cov(3).c = [false
-                                                       false
-                                                       false
-                                                       false
-                                                       false
-                                                       false
-                                                       false
-                                                       false
-                                                       false
-                                                       true
-                                                       false
-                                                       false
-                                                       false
-                                                       true
-                                                       true
-                                                       true
-                                                       true];
+false
+false
+false
+false
+false
+false
+false
+false
+true
+false
+false
+false
+true
+true
+true
+true];
 %%
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.cov(3).cname = 'ethnicity';
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.nPerm = 10000;

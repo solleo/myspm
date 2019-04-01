@@ -1,9 +1,17 @@
 function [Y,y,beta,Bcov ,STRC,thres,xyz] = myspm_graph(xSPM,SPM,hReg, cfg)
-% This is a highly mutated version of spm_graph to work with myspm_result.m
+% This is a modified version of spm_graph to work with myspm_result.m
 %
 % [Y y beta Bcov,strc,thres,xyz] = myspm_graph(xSPM,SPM,hReg, cfg)
 %
-% (cc?)
+% cfg could have: 
+% .plotType could be:
+%           "Fitted responses" 
+%           "Contrast estimates and 90% C.I."
+%           "Contrast estimates and 95% C.I. effect of interest"
+%
+% (cc?) sgKIM, 2019.
+
+if ~isfield(cfg,'suppressPlot'), cfg.suppressPlot=0; end
 
 %
 % Graphical display of adjusted data
@@ -93,11 +101,9 @@ xXi=cfg.xXi; % column # of the variable of interest in the design matrix
 %--------------------------------------------------------------------------
 Fgraph = spm_figure('GetWin','Graphics');
 
-
 %-Delete previous axis and their pagination controls (if any)
 %--------------------------------------------------------------------------
 spm_results_ui('Clear',Fgraph,2);
-
 
 %-Find nearest voxel [Euclidean distance] in point list & update GUI
 %--------------------------------------------------------------------------
@@ -107,16 +113,25 @@ if isempty(xSPM.XYZmm)
   return
 end
 
+% Get current coordiante (mm) from the marker
 if numel(hReg) == 1
   xyz = spm_XYZreg('GetCoords',hReg);
 else
   xyz = hReg;
 end
-[xyz,i] = spm_XYZreg('NearestXYZ',xyz,xSPM.XYZmm);
-if numel(hReg) == 1, spm_XYZreg('SetCoords',xyz,hReg); end
-XYZ     = xSPM.XYZ(:,i);
 
-Cplot = 'Fitted responses';
+% Find the nearest world coordinate from the header (xSPM.XYZmm)
+[xyz,i] = spm_XYZreg('NearestXYZ', xyz, xSPM.XYZmm);
+if numel(hReg) == 1, spm_XYZreg('SetCoords',xyz,hReg); end
+
+% Find the voxel coordinate of it (xSPM.XYZ)
+XYZ = xSPM.XYZ(:,i);
+
+if isfield(cfg,'plotType')
+  Cplot = cfg.plotType;
+else
+  Cplot = 'Fitted responses';
+end
 
 %-------------------------------
 % Getting structure names
@@ -134,35 +149,14 @@ elseif strcmpi(cfg.atlas,'fsl')
   STRC=[]; STRC.strc=strc; STRC.strc_all=strc_all;
 end
 
-% determine which contrast
-%------------------------------------------------------------------
-%Ic    = spm_input('Which contrast?','!+1','m',{SPM.xCon.name});
 
-
-%TITLE = {strcname SPM.xCon(Ic).name};
-[~,a]=find(xSPM.XYZ(1,:)== XYZ(1));
-[~,b]=find(xSPM.XYZ(2,:)== XYZ(2));
-[~,c]=find(xSPM.XYZ(3,:)== XYZ(3));
-idx=intersect(intersect(a,b),c);
-if numel(idx) == 1
-  if strcmp(xSPM.STAT,'T')
-    dftxt=['(',num2str(xSPM.df(end)),')'];
-  elseif strcmp(xSPM.STAT,'F')
-    dftxt=['(',num2str(xSPM.df(1)),',',num2str(xSPM.df(end)),')='];
-  end
-  peakStat=['Peak ',xSPM.STAT,dftxt,'= ',num2str(xSPM.Z(idx))];
+if strcmp(xSPM.STAT,'T')
+  dftxt=['(',num2str(xSPM.df(end)),')'];
+elseif strcmp(xSPM.STAT,'F')
+  dftxt=['(',num2str(xSPM.df(1)),',',num2str(xSPM.df(end)),')'];
 end
+peakStat=['Peak ',xSPM.STAT,dftxt,' = ',num2str(xSPM.Z(i))];
 TITLE = {strcname,peakStat};
-
-% if xSPM.STAT == 'P'
-%   TITLE = {Cplot SPM.xCon(Ic).name '(conditional estimates)'};
-% end
-% if ~exist('str','var')
-%   str=[];
-% end
-% if isfield(str,'title')
-%   TITLE=str.title;
-% end
 
 spm('Pointer','Watch');
 
@@ -280,6 +274,140 @@ spm('Pointer','Arrow');
 %--------------------------------------------------------------------------
 Col   = [0 0 0; .4 .4 .4; 1 .5 .5];
 switch Cplot
+    %-Modeling evoked responses based on Sess
+    %======================================================================
+    case 'Event-related responses'
+        dt    = SPM.xBF.dt;
+        s     = xG.spec.Sess;
+        u     = xG.spec.u;
+        
+        % event-related response
+        %------------------------------------------------------------------
+        if isempty(y)
+            warning(['Data not available. ' ...
+                'Plotting fitted response and 90% C.I. instead.']);
+            xG.spec.Rplot = 'fitted response and 90% C.I.';
+        end
+        switch xG.spec.Rplot
+            case 'fitted response and PSTH'
+                % build a simple FIR model subpartition (X); bin size = TR
+                %----------------------------------------------------------
+                BIN         = SPM.xY.RT;
+                xBF         = SPM.xBF;
+                U           = SPM.Sess(s).U(u);
+                U.u         = U.u(:,1);
+                xBF.name    = 'Finite Impulse Response';
+                xBF.order   = round(32/BIN);
+                xBF.length  = xBF.order*BIN;
+                xBF         = spm_get_bf(xBF);
+                BIN         = xBF.length/xBF.order;
+                X           = spm_Volterra(U,xBF.bf,1);
+                k           = SPM.nscan(s);
+                X           = X([0:(k - 1)]*SPM.xBF.T + SPM.xBF.T0 + 32,:);
+
+                % place X in SPM.xX.X
+                %----------------------------------------------------------
+                jX          = SPM.Sess(s).row;
+                iX          = SPM.Sess(s).col(SPM.Sess(s).Fc(u).i);
+                iX0         = [1:size(SPM.xX.X,2)];
+                iX0(iX)     = [];
+                X           = [X SPM.xX.X(jX,iX0)];
+                X           = SPM.xX.W(jX,jX)*X;
+                X           = [X SPM.xX.K(s).X0];
+
+                % Re-estimate to get PSTH and CI
+                %----------------------------------------------------------
+                j           = xBF.order;
+                xX          = spm_sp('Set',X);
+                pX          = spm_sp('x-',xX);
+                PSTH        = pX*y(jX);
+                res         = spm_sp('r',xX,y(jX));
+                df          = size(X,1) - size(X,2);
+                bcov        = pX*pX'*sum(res.^2)/df;
+                PSTH        = PSTH(1:j)/dt;
+                PST         = [1:j]*BIN - BIN/2;
+                PCI         = CI*sqrt(diag(bcov(1:j,(1:j))))/dt;
+        end
+
+        % basis functions and parameters
+        %------------------------------------------------------------------
+        X     = SPM.xBF.bf/dt;
+        x     = ([1:size(X,1)] - 1)*dt;
+        j     = SPM.Sess(s).col(SPM.Sess(s).Fc(u).i(1:size(X,2)));
+        B     = beta(j);
+
+        % fitted responses with standard error
+        %------------------------------------------------------------------
+        Y     = X*B;
+        CI    = CI*sqrt(diag(X*Bcov(j,j)*X'));
+
+        % peristimulus times and adjusted data (y = Y + R)
+        %------------------------------------------------------------------
+        pst   = SPM.Sess(s).U(u).pst;
+        bin   = round(pst/dt);
+        q     = find((bin >= 0) & (bin < size(X,1)));
+        y     = R(SPM.Sess(s).row(:));
+        pst   = pst(q);
+        y     = y(q) + Y(bin(q) + 1);
+
+        % returned values
+        %------------------------------------------------------------------
+        if strcmp(xG.spec.Rplot,'fitted response and PSTH')
+            G.PST  = PST;
+            G.PSTH = PSTH;
+            G.PCI  = PCI;
+        end
+        G.x   = x;
+        G.CI  = CI;
+        G.pst = pst;
+  
+  
+  %-Plot parameter estimates
+  %======================================================================
+  case 'Contrast estimates and 90% C.I. effect of interest'
+    Ic_eoi = find(contains({SPM.xCon.name},'Effect of interest'));
+    
+    % compute contrast of parameter estimates and 90% C.I.
+    %------------------------------------------------------------------
+    cbeta = SPM.xCon(Ic_eoi).c'*beta;
+    SE    = sqrt(diag(SPM.xCon(Ic_eoi).c'*Bcov*SPM.xCon(Ic_eoi).c));
+    CI    = CI*SE;
+    
+    contrast.contrast      = cbeta;
+    contrast.standarderror = SE;
+    contrast.interval      = 2*CI;
+    assignin('base','contrast',contrast)
+    
+    % bar chart
+    %------------------------------------------------------------------
+    figure(Fgraph)
+    subplot(2,1,2)
+    cla
+    hold on
+    
+    % estimates
+    %------------------------------------------------------------------
+    h     = bar(cbeta);
+    set(h,'FaceColor',Col(2,:))
+    
+    % standard error
+    %------------------------------------------------------------------
+    for j = 1:length(cbeta)
+      line([j j],([CI(j) -CI(j)] + cbeta(j)),...
+        'LineWidth',6,'Color',Col(3,:))
+    end
+    
+    title(TITLE,'FontSize',12)
+    xlabel('regressor')
+    ylabel(['contrast estimate',XYZstr])
+    set(gca,'XLim',[0.4 (length(cbeta) + 0.6)])
+    hold off
+    
+    set(gca, 'xtick',1:numel(cbeta), 'xticklabel',cat(1,SPM.Sess(1).U.name))
+    
+    % set Y to empty so outputs are assigned
+    %------------------------------------------------------------------
+    Y = [];
   
   %-Plot parameter estimates
   %======================================================================
@@ -338,32 +466,11 @@ switch Cplot
     % fitted (predicted) data (Y = X1*c*c^-1*beta)
     %--------------------------------------------------------------
     Y = SPM.xX.X*SPM.xCon(Ic).c*pinv(SPM.xCon(Ic).c)*beta;
-    %         else
-    %
-    %             % fitted (corrected)  data (Y = X1o*beta)
-    %             %--------------------------------------------------------------
-    %             Y = spm_FcUtil('Yc',SPM.xCon(Ic),SPM.xX.xKXs,beta);
-    %
-    %         end
     
     % adjusted data
     %------------------------------------------------------------------
     y     = Y + R;
-    
-    % get ordinates
-    %------------------------------------------------------------------
-    %         Xplot = {'an explanatory variable',...
-    %                  'scan or time',...
-    %                  'a user specified ordinate'};
-    %         Cx    = spm_input('plot against','!+1','m',Xplot);
-    %Cx=1;
-    % an explanatory variable
-    %------------------------------------------------------------------
-    %        if     Cx == 1
-    
-    %             str  = 'Which explanatory variable?';
-    %             i    = spm_input(str,'!+1','m',SPM.xX.name);
-    
+        
     % when contrast has one only non-zero value:
     i    = xXi;
     %x    = SPM.xX.xKXs.X(:,xXi);
@@ -371,15 +478,9 @@ switch Cplot
     XLAB = SPM.xX.name{i};
     if ~exist('skipTheGraph','var')
       %offset adjustment (by sgKIM)
-      %meany = mean(spm_get_data(SPM.xY.P, XYZ));
       yoffset = beta(1);
-      %     if numel(beta) ~= 1 % But I should NOT do this if the model was 1
       y0 = y + yoffset;
       Y1 = Y + yoffset;
-      %     else
-      %       y0 = y ;
-      %       Y1 = Y ; %??
-      %     end
       try xoffset = mean(evalin('base','EXP.vi.val'));
       catch ME
         xoffset=0;
@@ -387,110 +488,134 @@ switch Cplot
       
       x = x + xoffset;
       
-      % plot
-      %------------------------------------------------------------------
-      figure(Fgraph)
-      subplot(2,1,2)
-      cla
-      hold on
-      [p q] = sort(x);
-      %Col(4,:)=[.5 .5 1];
-      h=[0 0];
-      if mod(cfg.Ic,2) == 0
-        x=-x;
-      end
-      
-      
-      if all(diff(x(q))) % no duplication of x (thus likely continuous..?)
-        h(1)=plot(x(q),y0(q),'.','MarkerSize',8, 'Color',Col(3,:)); %offset adjustment (by sgKIM)
-        h(2)=plot(x(q),Y1(q),'LineWidth',2,'Color',Col(2,:));
-        %plot(x(q),y(q),'-','Color',[.8 .8 .8]);
-        %h(2)=plot(x(q),y(q),'.','MarkerSize',8, 'Color',Col(3,:));
-        %plot(x(q),y0(q),'-','Color',[.8 .8 .8]);
-      else % for discrete values
-        try h(2)=plot(x(q),Y1(q),'.','MarkerSize',8,'Color',Col(1,:));
-        catch ME
-          hh=get(gca,'children');
-          h(2)=hh(end);
-        end
-        %h(2)=plot(x(q),y(q),'.','MarkerSize',8, 'Color',Col(2,:));
-        try h(1)=plot(x(q),y0(q),'o','MarkerSize',4, 'Color',Col(3,:)); %offset adjustment (by sgKIM)
-        catch ME
-          hh=get(gca,'children');
-          h(1)=hh(end);
-        end
-        xlim = get(gca,'XLim');
-        xlim = [-1 1]*diff(xlim)/4 + xlim;
-        set(gca,'XLim',xlim)
-      end
-      if isfield(cfg,'markCorrThres')
-        % ref: http://en.wikipedia.org/wiki/Bonferroni_correction
-        % Z=atanh(R) ~ N(0,1/sqrt(n-3)) where n is # of samples
-        % As we compute the correlation from 410 volumes...
+      if ~cfg.suppressPlot
         
-        % This is bonferoni correction:
-        %       alpha=cfg.markCorrThres.alpha;
-        %       NumVox=size(SPM.xVol.XYZ,2);
-        %       NumFrames=cfg.markCorrThres.NumFrames;
-        %       thres=tanh(norminv(1-(alpha/NumVox/2),0,1/sqrt(NumFrames-3)));
-        %       CA=axis;
-        %       h1=line([CA(1:2); CA(1:2)]', [thres thres; -thres -thres]', 'color',[.8 1 .8]);
-        if isfield(cfg.markCorrThres, 'CorrFDRThres')
-          thres=cfg.markCorrThres.CorrFDRThres;
-        else
-          % How about FDR correction?
-          alphalevel=cfg.markCorrThres.alpha;
-          %NumVox=size(SPM.xVol.XYZ,2);
-          NumFrames=cfg.markCorrThres.NumFrames;
-          SE=1/sqrt(NumFrames-3);
-          % that means, we set a threshold for each individual
-          NumSubj=size(SPM.xY.P,1);
-          thres=zeros(NumSubj,1);
-          for subji=1:NumSubj
-            r=sort(spm_get_data(SPM.xY.VY(subji), SPM.xVol.XYZ));
-            z=atanh(r);
-            pvals = min(normcdf(z,0,SE), normcdf(-z,0,SE))*2;
-            thres(subji) = r(find(pvals > fdr(pvals,alphalevel),1,'last'));
-          end
-          thres=mean(thres);
+        % plot
+        %------------------------------------------------------------------
+        figure(Fgraph)
+        subplot(2,1,2)
+        cla
+        hold on
+        [p q] = sort(x);
+        %Col(4,:)=[.5 .5 1];
+        h=[0 0];
+        if mod(cfg.Ic,2) == 0
+          x=-x;
         end
-        CA=axis;
-        h_alpha=line([CA(1:2); CA(1:2)]', [thres thres; -thres -thres]', 'color',[.2 .8 .2]);
-      else
-        thres=[];
+        
+        if cfg.isfmri
+          xG=[];
+          xG.def='Fitted responses';
+          xG.spec.Ic=1;
+          xG.spec.predicted=1;
+          xG.spec.x.scan=1;
+          [Y,y,beta,Bcov,G] = spm_graph(SPM,XYZ,xG);
+          h(1)=plot(G.x,zscore(y),'.-','MarkerSize',8, 'Color',Col(3,:)); % observed
+          h(2)=plot(G.x,zscore(Y),'LineWidth',2,'Color',Col(2,:));        % predicted
+          cfg.x_name='Time [s]';
+          cfg.y_name='Z(y)';
+          
+        elseif all(diff(x(q))) % no duplication of x (thus likely continuous..?)
+          h(1)=plot(x(q),y0(q),'o','MarkerSize',8, 'Color',Col(3,:)); %offset adjustment (by sgKIM)
+          h(2)=plot(x(q),Y1(q),'LineWidth',2,'Color',Col(2,:));
+        else % for discrete values
+          try h(2)=plot(x(q),Y1(q),'o','MarkerSize',8,'Color',Col(1,:));
+          catch ME
+            hh=get(gca,'children');
+            h(2)=hh(end);
+          end
+          %h(2)=plot(x(q),y(q),'.','MarkerSize',8, 'Color',Col(2,:));
+          x_fit=x(q);
+          y_fit=y0(q);
+          [~,idx]=sort(x_fit);
+          try h(1)=plot(x(q),y0(q),'o','MarkerSize',10, 'Color',Col(3,:)); %offset adjustment (by sgKIM)
+          catch ME
+            hh=get(gca,'children');
+            h(1)=hh(end);
+          end
+          xlim = get(gca,'XLim');
+          xlim = [-1 1]*diff(xlim)/4 + xlim;
+          set(gca,'XLim',xlim)
+        end
+        
+        plotdata=[];
+        plotdata.x = x(q);
+        plotdata.y = y0(q);
+        plotdata.yhat = Y1(q);
+        if cfg.isfmri
+          plotdata.x = G.x;
+          plotdata.y = y;
+          plotdata.yhat = Y;
+        end
+        save ([xSPM.swd,'/plotdata_cluster',num2str(cfg.clusterIdx),'.mat'],'plotdata');
+        
+        
+        if isfield(cfg,'markCorrThres')
+          % ref: http://en.wikipedia.org/wiki/Bonferroni_correction
+          % Z=atanh(R) ~ N(0,1/sqrt(n-3)) where n is # of samples
+          % As we compute the correlation from 410 volumes...
+          
+          % This is bonferoni correction:
+          if isfield(cfg.markCorrThres, 'CorrFDRThres')
+            thres=cfg.markCorrThres.CorrFDRThres;
+          else
+            % How about FDR correction?
+            alphalevel=cfg.markCorrThres.alpha;
+            NumFrames=cfg.markCorrThres.NumFrames;
+            SE=1/sqrt(NumFrames-3);
+            % that means, we set a threshold for each individual
+            NumSubj=size(SPM.xY.P,1);
+            thres=zeros(NumSubj,1);
+            for subji=1:NumSubj
+              r=sort(spm_get_data(SPM.xY.VY(subji), SPM.xVol.XYZ));
+              z=atanh(r);
+              pvals = min(normcdf(z,0,SE), normcdf(-z,0,SE))*2;
+              thres(subji) = r(find(pvals > fdr(pvals,alphalevel),1,'last'));
+            end
+            thres=mean(thres);
+          end
+          CA=axis;
+          h_alpha=line([CA(1:2); CA(1:2)]', [thres thres; -thres -thres]', 'color',[.2 .8 .2]);
+        else
+          thres=[];
+        end
+        
+        title(TITLE,'FontSize',12)
+        
+        if isfield(cfg,'x_name')
+          xlabel(cfg.x_name);
+        else
+          xlabel(XLAB)
+        end
+        if isfield(cfg,'y_name')
+          ylabel([cfg.y_name,XYZstr])
+        else
+          ylabel(['response',XYZstr])
+        end
+        [~,a]=min(x);
+        [~,b]=max(x);
+        if y(a) < y(b)
+          LOC='southeast';
+        else
+          LOC='northeast';
+        end
+        if exist('h_alpha','var')
+          legend([h h_alpha'], {'observed','fitted',['q=',sprintf('%0.2f',cfg.markCorrThres.alpha)]},'location',LOC);
+        else
+          legend(h, {'observed','fitted'},'location',LOC);
+        end
+        hold off
+        if isfield(SPM,'Sess')
+          % for fMRI, show only first <100 TRs (otherwise it's too dense to see)
+          idx = min([numel(plotdata.x) 100]);
+          set(gca,'xlim',[plotdata.x(1) plotdata.x(idx)])
+          grid on; box on;
+        end
       end
-      
-      title(TITLE,'FontSize',12)
-      
-      if isfield(cfg,'x_name')
-        xlabel(cfg.x_name);
-      else
-        xlabel(XLAB)
-      end
-      if isfield(cfg,'y_name')
-        ylabel([cfg.y_name,XYZstr])
-      else
-        ylabel(['response',XYZstr])
-      end
-      [~,a]=min(x);
-      [~,b]=max(x);
-      if y(a) < y(b)
-        LOC='southeast';
-      else
-        LOC='northeast';
-      end
-      if exist('h_alpha','var')
-        legend([h h_alpha'], {'observed','fitted',['q=',sprintf('%0.2f',cfg.markCorrThres.alpha)]},'location',LOC);
-      else
-        legend(h, {'observed','fitted'},'location',LOC);
-      end
-      hold off
-      grid on; box on;
+
       %%
     end
-    
 end
-
 
 % Turn hold button off - this will alert the user to press it again
 %--------------------------------------------------------------------------
@@ -507,7 +632,7 @@ end
 
 %% myfsl_atlasquery.m
 
-function [strc, strc_all]=myfsl_atlasquery(mni_xyz, ijkflag)
+function [strc, strc_all]=myfsl_atlasquery(mni_xyz, ijkflag, atlasset)
 % [strc, strc_all]=myfsl_atlasquery(mni_xyz, ijkflag)
 % mni_xyz: MNI-coordinates (mm) or 1-based ijk (voxels) with nifti
 %
@@ -521,19 +646,27 @@ if ~exist('ijkflag','var')
   ijkflag=0;
 end
 
+if ~exist('atlasset','var')
+  atlasset='gm';
+end
+
 fslpath = getenv('FSLDIR');
 xmlFNAMES{1}=fullfile(fslpath,'data/atlases/HarvardOxford-Cortical-Lateralized.xml');
-niiFNAMES{1}=fullfile(fslpath,'data/atlases/HarvardOxford/HarvardOxford-cortl-prob-1mm.nii.gz');
+niiFNAMES{1}=fullfile(fslpath,'data/atlases/HarvardOxford/HarvardOxford-cortl-prob-2mm.nii.gz');
+if ~exist(niiFNAMES{1},'file')
+  xmlFNAMES{1}=fullfile(fslpath,'data/atlases/HarvardOxford-Cortical.xml');
+  niiFNAMES{1}=fullfile(fslpath,'data/atlases/HarvardOxford/HarvardOxford-cort-prob-2mm.nii.gz');
+end
 xmlFNAMES{2}=fullfile(fslpath,'data/atlases/HarvardOxford-Subcortical.xml');
-niiFNAMES{2}=fullfile(fslpath,'data/atlases/HarvardOxford/HarvardOxford-sub-prob-1mm.nii.gz');
+niiFNAMES{2}=fullfile(fslpath,'data/atlases/HarvardOxford/HarvardOxford-sub-prob-2mm.nii.gz');
 xmlFNAMES{3}=fullfile(fslpath,'data/atlases/Cerebellum_MNIfnirt.xml');
-niiFNAMES{3}=fullfile(fslpath,'data/atlases/Cerebellum/Cerebellum-MNIfnirt-prob-1mm.nii.gz');
+niiFNAMES{3}=fullfile(fslpath,'data/atlases/Cerebellum/Cerebellum-MNIfnirt-prob-2mm.nii.gz');
 xmlFNAMES{4}=fullfile(fslpath,'data/atlases/JHU-tracts.xml');
-niiFNAMES{4}=fullfile(fslpath,'data/atlases/JHU/JHU-ICBM-tracts-prob-1mm.nii.gz');
+niiFNAMES{4}=fullfile(fslpath,'data/atlases/JHU/JHU-ICBM-tracts-prob-2mm.nii.gz');
 
 % okay unzipping takes more than 2 sec..., so try to find it from /tmp first
 for a=1:4
-  [~,fname1,ext1]=fileparts(niiFNAMES{a});
+  [~,fname1,~]=fileparts(niiFNAMES{a});
   if ~exist(['/tmp/',fname1], 'file')
     gunzip(niiFNAMES{a}, '/tmp/');
   end
@@ -565,14 +698,20 @@ else
   xyz = round(ijk2xyz(ijk', niiFNAMES{1}))';
 end
 
-
 %% now read probs for XYZ using spm_get_data (very efficient when reading only one voxel)
 strc.name='N/A';
 strc.prob=0;
 strc_all.name=cell(1,4);
 strc_all.prob=[0 0 0 0];
 k=1;
-for a=1:4 % for each atlas
+if strcmpi('all',atlasset)
+  ATLAS=1:4;
+elseif strcmpi('gm',atlasset)
+  ATLAS=1:3;
+elseif strcmpi('wm',atlasset)
+  ATLAS=4;
+end
+for a=ATLAS % for each atlas
   P = spm_vol(niiFNAMES{a});
   probs = spm_get_data(P, ijk);
   if a==2
@@ -597,7 +736,6 @@ for a=1:4 % for each atlas
   end
   
   % for any other possibilities...
-  
   if size(ijk,2) == 1 % for a voxel
     nz = find(~~probs); % non-zero probs.
     for j=1:numel(nz)
@@ -830,7 +968,7 @@ function xyz = ijk2xyz(ijk, nii)
 
 
 if ischar(nii)
-  nii = load_untouch_nii(nii);
+  nii = load_uns_nii(nii);
 end
 
 T=[nii.hdr.hist.srow_x; nii.hdr.hist.srow_y; nii.hdr.hist.srow_z; 0 0 0 1];

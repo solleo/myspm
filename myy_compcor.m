@@ -5,96 +5,136 @@ function EXP = myy_compcor(EXP)
 %  and saving eigenvalues, plots, and mean gm(>.99) signal
 %
 % EXP requires:
-%  .dir_base
-%  .subjID
+%  .dir_data
 %  .name_epi
-% (.dir_figure)
+%  .TR_sec
 % (.param_mask) [gm_prob_thres, wm/csf_prob_thres]
 % (.num_pcs) 16 (default)
-% (.t1w_suffix) 't1w' (default)
+%  .t1w_suffix 't1w' (default) for c?${t1w_suffix}.nii
 % (.nofigure)
 % asumming processes are done by myspm_fmriprep12_func.m
 %
-% (cc) 2015, sgKIM.   solleo@gmail.com   https://ggooo.wordpress.com
+% (cc) 2015, 2016, 2018, sgKIM.   solleo@gmail.com   https://ggooo.wordpress.com
 
 path0=pwd;
 if ~isfield(EXP,'prefix'), EXP.prefix='o';  end
 if ~isfield(EXP,'t1w_suffix'), EXP.t1w_suffix='t1w'; end
-subjID = fsss_subjID(EXP.subjID);
+if ~isfield(EXP,'overwrite'), EXP.overwrite=0; end
+if ~isfield(EXP,'bpf'),    EXP.bpf = [0 Inf]; end
+if ~isfield(EXP,'num_pcs'), EXP.num_pcs = 16; end
+if ~isfield(EXP,'detrend'), EXP.detrend = 1; end
+if ~isfield(EXP,'varnorm'), EXP.varnorm = 1; end
 
-for i=1:numel(subjID)
-  subjid = subjID{i};
-  EXP.subjid = subjid;
-  path1=fullfile(EXP.dir_base,subjid);
-  cd(path1);
-  EXP.fname_epi = fullfile(EXP.dir_base, subjid, EXP.name_epi);
-  
+global fig_dpi
+if ~isfield(EXP,'fig_dpi'), fig_dpi=300; else fig_dpi=EXP.fig_dpi; end
+if ~isfield(EXP,'path1')
+  path1=fullfile(EXP.dir_data);
+else
+  path1=EXP.path1;
+end
+cd(path1);
+if ~isfield(EXP,'fname_epi') && isfield(EXP,'name_epi')
+  EXP.fname_epi = [path1,'/',EXP.name_epi];
+elseif isfield(EXP,'fname_epi') && ~isfield(EXP,'name_epi')
+  [~,name1,ext1]=myfileparts(EXP.fname_epi);
+  EXP.name_epi=[name1,ext1];
+end
+[~,name1,~]=myfileparts(EXP.fname_epi);
+output_suffix=sprintf('_n%db%0.2f-%0.2f',EXP.num_pcs, EXP.bpf);
+EXP.output_suffix = output_suffix;
+fname_out=[name1,output_suffix,'_eigenval.txt'];
+
+if ~exist(fname_out,'file')
   %% 1. bring segmentations to functional space
-  if ~isfield(EXP,'param_mask')
-    EXP.param_mask=[.99 .99];
-  end
-  if numel(EXP.param_mask) < 2
-    error('EXP.param_mask: Enter two prob threshold for GM and [WM/CSF]');
-  end
-  EXP.param_mask(3) = EXP.param_mask(2);
-  
-  need2run=0;
+  if ~isfield(EXP,'param_mask'),EXP.param_mask=[.95 .999 .99];end
   tprob=cell(1,3);
   fnames_out=cell(1,3);
-  for c=1:3
-    tprob{c} = sprintf('%0.2f',EXP.param_mask(c));
-    fnames_out{c} = ['oc',num2str(c),EXP.t1w_suffix,'_',tprob{c},'.nii'];
-    need2run=need2run||~exist(fnames_out{c},'file');
-    name_tpm{c} = ['c',num2str(c),EXP.t1w_suffix,'.nii'];
-  end
-  if need2run
-    if ~exist(['o',name_tpm{1}],'file')||...
-       ~exist(['o',name_tpm{2}],'file')||...
-       ~exist(['o',name_tpm{3}],'file')
-      exp1=[];
-      exp1.name_fixed  = ['mean',EXP.name_epi];
-      if isfield(EXP,'name_meanepi')
-        exp1.name_fixed = EXP.name_meanepi;
-      end
-      if isfield(EXP,'name_t1w')
-        exp1.name_moving = 'Brain.nii';
-      else
-        exp1.name_moving = EXP.name_t1w;
-      end
-      exp1.name_others = name_tpm;
-      myspm_coreg(exp1);
-    end
+  if ~isfield(EXP,'skipcoreg')
+    need2run=0;
     for c=1:3
-      unix(['fslmaths o',name_tpm{c},' ',...
-        ' -thr ',tprob{c},' -bin ',fnames_out{c},' -odt char']);
+      tprob{c} = sprintf('%0.2f',EXP.param_mask(c));
+      fnames_out{c} = [name1,'_c',num2str(c),EXP.t1w_suffix,'_',tprob{c},'.nii'];
+      need2run=need2run||~exist(fnames_out{c},'file');
+      name_tpm{c} = ['c',num2str(c),EXP.t1w_suffix,'.nii'];
     end
+    exp1=[];
+    exp1.prefix=[name1,'_'];
+    exp1.fname_fixed  = [path1,'/mmean',EXP.name_epi]; % B1-bias-corrected EPI
+    exp1.interp=0;
+    if isfield(EXP,'name_meanepi')
+      exp1.fname_fixed = [path1,'/',EXP.name_meanepi];
+    end
+    exp1.fname_moving = [path1,'/bm',EXP.t1w_suffix,'.nii'];
+    %  if strcmpi(EXP.t1w_suffix,'uni') % if this is MP2RAGE uniform image:
+    %   exp1.fname_moving = [path1,'/bm',EXP.t1w_suffix,'.nii'];
+    %  end
+    for c=1:3
+      exp1.fname_others{c} = [path1,'/',name_tpm{c}];
+    end
+    if need2run
+      if ~exist([name1,'_',name_tpm{1}],'file') || ...
+          ~exist([name1,'_',name_tpm{2}],'file') || ...
+          ~exist([name1,'_',name_tpm{3}],'file')
+        exp1.overwrite=1;
+        myspm_coreg(exp1); % without changing header!
+      end
+    end
+  else
+    % for EPIs already in MNI152 space
+    name_tpm={'c1tpm.nii','c2tpm.nii','c3tpm.nii'};
+    fnames_out={};
+    for c=1:3
+      unix(['ln -sf c',num2str(c),'tpm.nii ',name1,'_c',num2str(c),'tpm.nii']);
+      tprob{c} = sprintf('%0.2f',EXP.param_mask(c));
+      fnames_out{c} = [name1,'_c',num2str(c),EXP.t1w_suffix,'_',tprob{c},'.nii'];
+    end
+  end
+  
+  % After unwarpping, there are always NaN at image boundary.
+  % For partial FOVs, it's possible that those NaN are placed in the middle
+  % of the brain.
+  epi=load_untouch_nii(EXP.fname_epi,1);
+  epi_nan=isnan(epi.img);
+  
+  C=[];
+  for c=1:3
+    nii_c = load_uns_nii([name1,'_',name_tpm{c}]);
+    nii_c.img = (nii_c.img > EXP.param_mask(c)) & ~epi_nan;
+    if c==1
+      C = single(~~nii_c.img);
+    else
+      if sum(C(~~nii_c.img(:)))
+        error('GM/WM/CSF mask overlaps!');
+      end
+      C(~~nii_c.img)=c;
+    end
+    save_untouch_nii(nii_c, fnames_out{c});
+  end
+  if ~isfield(EXP,'skipcoreg') && ~(isfield(EXP,'nofigure') && EXP.nofigure)
+    [p5,f5,e5]=fileparts(exp1.fname_moving);
+    
+    hf=figure('visible','off');
+    cfg=struct('voxsize', nii_c.hdr.dime.pixdim(2:4),'colormap',[0 0 0; eye(3).*0.8],...
+      'contourcolor','w','num_contour',2);
+    fixed = load_untouch_nii(exp1.fname_fixed,1);
+    imageorth(C,cfg, fixed.img);
+    export_fig([name1,'_tpm_masks.png'],['-r',num2str(fig_dpi)])
+    close(hf);
   end
   EXP.fname_masks  = fnames_out(2:3);
+  if isfield(EXP,'onlycsf')
+    EXP.fname_masks  = fnames_out(3);
+  end
   EXP.fname_gmmask = fnames_out{1};
   EXP.tprob = tprob;
   
   %% 2. let's run
-  if ~isfield(EXP,'bpf1'),    EXP.bpf1 = [0 Inf]; end
-  if ~isfield(EXP,'num_pcs'), EXP.num_pcs = 16; end
-  if ~isfield(EXP,'detrend'), EXP.detrend = 1; end
-  if ~isfield(EXP,'varnorm'), EXP.varnorm = 1; end
-  output_suffix=sprintf('_n%dd%dv%db%0.2f-%0.2f', ...
-    EXP.num_pcs, EXP.detrend, EXP.varnorm, EXP.bpf1);
-  EXP.output_suffix = output_suffix;
   EXP = y_CompCor_PC(EXP);
-  
-  % copy figures
-  if isfield(EXP,'dir_figure') && ~isfield(EXP,'nofigure')
-    [~,~]=mkdir(EXP.dir_figure);
-    copyfile([path1,'/cc_plot',output_suffix,'.png'], ...
-      [EXP.dir_figure,'/cc_plot',output_suffix,'_',subjid,'.png']);
-    if exist([path1,'/cc_eigval',output_suffix,'.png'],'file')
-      copyfile([path1,'/cc_eigval',output_suffix,'.png'], ...
-        [EXP.dir_figure,'/cc_eigval',output_suffix,'_',subjid,'.png']);
-    end
-  end
-  
+else
+  EXP.fname_cc=[name1,output_suffix,'_eigenvec.txt'];
 end
+disp('Done')
+ls(fname_out)
 cd(path0);
 
 end
@@ -125,14 +165,16 @@ function EXP = y_CompCor_PC(EXP)
 %[EXP.PCs, EXP.eigval, EXP.GMs] = y_CompCor_PC(EXP.fname_epi, EXP.fname_masks, '', EXP.num_pcs, ...
 % EXP.detrend, FilterBand, TR_sec, EXP.varnorm, output_suffix, EXP.fname_gmmask, EXP.fname_epi, tprob, EXP);
 
+global fig_dpi
+
 ADataDir                = EXP.name_epi;
-fname_epi               = EXP.fname_epi;
+%fname_epi               = EXP.fname_epi;
 Nuisance_MaskFilename   = EXP.fname_masks;
 gm_mask                 = EXP.fname_gmmask;
-tprob                   = EXP.tprob;
+%tprob                   = EXP.tprob;
 PCNum                   = EXP.num_pcs;
 IsNeedDetrend           = EXP.detrend;
-Band                    = EXP.bpf1;
+Band                    = EXP.bpf;
 TR                      = EXP.TR_sec;
 IsVarianceNormalization = EXP.varnorm;
 output_suffix           = EXP.output_suffix;
@@ -152,8 +194,8 @@ AllVolume=(reshape(AllVolume,[],nDimTimePoints).');
 [GMMaskData,~,~]=y_ReadRPI(gm_mask);
 GM = AllVolume(:,find(GMMaskData(:)));
 imageintensity = AllVolume(:,find(GMMaskData(:)));
-gm = mean(GM,2); % before computing signal change(%)
-gm0 = repmat(mean(GM,1),[nDimTimePoints,1]);
+gm = nanmean(GM,2); % before computing signal change(%)
+gm0 = repmat(nanmean(GM,1),[nDimTimePoints,1]);
 GM = (GM-gm0)./(eps+gm0)*100;
 
 % wm and csf
@@ -174,31 +216,13 @@ AllVolume=AllVolume(:,find(MaskDataOneDim));
 if ~(exist('IsNeedDetrend','var') && IsNeedDetrend==0)
   %DEFAULT: 1 -- Detrend (demean) and variance normalization will be performed before PCA, as done in Behzadi, Y., Restom, K., Liau, J., Liu, T.T., 2007. A component based noise correction method (CompCor) for BOLD and perfusion based fMRI. Neuroimage 37, 90-101.
   fprintf('\n# Detrending...');
-  SegmentLength = ceil(size(AllVolume,2) / CUTNUMBER); % spatial segment (columns of AllVolume)
-  for iCut=1:CUTNUMBER
-    if iCut~=CUTNUMBER
-      Segment = (iCut-1)*SegmentLength+1 : iCut*SegmentLength;
-    else
-      Segment = (iCut-1)*SegmentLength+1 : size(AllVolume,2);
-    end
-    AllVolume(:,Segment) = detrend(AllVolume(:,Segment));
-    fprintf('.');
-  end
+  AllVolume=detrend(AllVolume);
 end
 
 % Filtering
 if exist('Band','var') && ~isempty(Band)
   fprintf('\n# Filtering...');
-  SegmentLength = ceil(size(AllVolume,2) / CUTNUMBER);
-  for iCut=1:CUTNUMBER
-    if iCut~=CUTNUMBER
-      Segment = (iCut-1)*SegmentLength+1 : iCut*SegmentLength;
-    else
-      Segment = (iCut-1)*SegmentLength+1 : size(AllVolume,2);
-    end
-    AllVolume(:,Segment) = y_IdealFilter(AllVolume(:,Segment), TR, Band);
-    fprintf('.');
-  end
+  AllVolume = y_IdealFilter(AllVolume, TR, Band);
 end
 
 %Variance normalization
@@ -209,114 +233,79 @@ if ~(exist('IsVarianceNormalization','var') && IsVarianceNormalization==0)
   AllVolume(isnan(AllVolume))=0;
 end
 [path1,~,~] = fileparts(ADataDir);
+[~,name1,~]=fileparts(EXP.name_epi);
 if PCNum
   % SVD
   [U,S,V] = svd(AllVolume,'econ');
   eigval = diag(S);
   xvar=cumsum(eigval)/sum(eigval)*100;
+  %% SCREE PLOT
   if ~isfield(EXP,'nofigure')
-    hf=figure('position',[2237         234         560         634]);
-    subplot(311)
-    plot(eigval,'b'); xlabel('Order of eigenvalues'); ylabel('Eigenvalue')
-    ylim0=ylim; hold on; line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
-    title([num2str(eigval(PCNum)),'@',num2str(PCNum),'-th PC'])
-    xlim([1 50]);
     
-    % "Scree plot" method
+    hf=figure('position',[2237         234         560         634],'visible','off');
+    subplot(311)
+    plot(eigval,'k'); xlabel('Order of eigenvalues'); ylabel('Eigenvalue')
+    ylim0=ylim; hold on; line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
+    %title([num2str(eigval(PCNum)),'@',num2str(PCNum),'-th PC of WM/CSF voxels'])
+    title('BOLD timeseries in WM/CSF voxels')
+    xlim([1 50]);
+    text(PCNum,eigval(PCNum), ...
+      ['(',num2str(PCNum),', ',num2str(eigval(PCNum),3),')'], ...
+      'color','r');
+    
     subplot(312)
     ddy=gaussblur([0; 0; diff(diff(eigval))],3);
-    plot(ddy(1:50),'b'); xlabel('Order of eigenvalues'); 
-    ylabel({'Smoothed (fwhm=3)','change of slope'});
-    ylim0=ylim; hold on; line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
-    title([num2str(eigval(PCNum)),'@',num2str(PCNum),'-th PC'])
+    upto = min([50 numel(ddy)]);
+    plot(ddy(1:upto),'k'); xlabel('Order of eigenvalues');
+    ylabel('Change of slope');
+    ylim0=ylim; hold on;
+    line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
+    title('Smoothed with FWHM = 3 orders');
     xlim([1 50]);
+    [~,jj]=max(ddy(1:upto));
+    line([jj jj]', [ylim0(1) ylim0(2)]','color','b');
+    text(PCNum,ylim0(1), ...
+      ['(',num2str(PCNum),', ',num2str(ddy(PCNum),3),')'], ...
+      'color','r','fontsize',15);
+    text(jj,ylim0(2), ...
+      ['(',num2str(jj),', ',num2str(ddy(jj),3),')'], ...
+      'color','b','fontsize',15);
     
     subplot(313);
-    plot(xvar,'b'); xlabel('Order of eigenvalues'); 
-    ylabel('Cumulative expalined variance(%)')
+    plot(xvar,'k'); xlabel('Order of eigenvalues');
+    ylabel({'Cumulative','expalined','variance(%)'})
     ylim0=ylim; hold on; line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
-    title([num2str(xvar(PCNum)),'% with ',num2str(PCNum),'PCs',])
-    xlim([1 50]);
+    line([jj jj]', [ylim0(1) ylim0(2)]','color','b');
     
-    screen2png(['cc_eigval',output_suffix,'.png']);
+    %title([num2str(xvar(PCNum)),'% with ',num2str(PCNum),'PCs',])
+    text(PCNum,ylim0(1), ...
+      ['(',num2str(PCNum),', ',num2str(xvar(PCNum),3),')'], ...
+      'color','r','fontsize',15);
+    text(jj,ylim0(2), ...
+      ['(',num2str(jj),', ',num2str(xvar(jj),3),')'], ...
+      'color','b','fontsize',15);
+    xlim([1 50]);
+    [~,name1,~]=fileparts(EXP.name_epi);
+%     screen2png(fullfile(path1,[name1,'_screeplot',output_suffix,'.png']),fig_dpi);
+    export_fig(fullfile(path1,[name1,'_screeplot',output_suffix,'.png']),['-r',num2str(fig_dpi)]);
     close(hf);
   end
   PCs = U(:,1:PCNum);
   PCs = double(PCs);
-  save(fullfile(path1,['cc_wmcsf',tprob{3},output_suffix,'_eigenval.txt']), ...
+  save(fullfile(path1,[name1,output_suffix,'_eigenval.txt']), ...
     'eigval', '-ASCII', '-DOUBLE','-TABS')
 else
   % mean
   PCs = mean(AllVolume,2);
   eigval = [];
 end
-save(fullfile(path1,['cc_wmcsf',tprob{2},output_suffix,'_eigenvec.txt']), ...
-  'PCs', '-ASCII', '-DOUBLE','-TABS')
-save(fullfile(path1,['cc_gm',tprob{1},'.txt']), 'gm', '-ASCII', '-DOUBLE','-TABS')
+[~,name1,~]=fileparts(EXP.name_epi);
+save(fullfile(path1,[name1,output_suffix,'_eigenvec.txt']), ...
+  'PCs', '-ASCII', '-DOUBLE','-TABS');
+EXP.fname_cc=[name1,output_suffix,'_eigenvec.txt'];
+save(fullfile(path1,[name1,'_gm.txt']), 'gm', '-ASCII', '-DOUBLE','-TABS');
+EXP.fname_gs=fullfile(path1,[name1,'_gm.txt']);
 fprintf('\nFinished Extracting principle components for CompCor Correction.\n');
-
-[~,name1,~] = fileparts(EXP.name_epi);
-[~,res] = mydir(fullfile(path1,['art_regression_outliers_and_movement_',name1,'*']));
-if isempty(res)
-  exp=EXP;
-  exp.subjID = {EXP.subjid};
-  myspm_art(exp);
-end
-if ~isfield(EXP,'nofigure')
-  
-  [~,res] = mydir(fullfile(path1,['art_regression_outliers_and_movement_',name1,'*']));
-  load (res{1},'R');
-  load(fullfile(path1,['cc_gm',tprob{1},'.txt']), 'gm');
-  load(fullfile(path1,['cc_wmcsf',tprob{2},output_suffix,'_eigenvec.txt']),'PCs');
-  
-  % create figure
-  hf=figure('position',[2237         168         706        1009]);
-  rp=R(:,end-6:end-1);
-  subplot(611); plot(R(:,end)); ylabel('mov_{art}(mm)');
-  ha=colorbar; set(ha,'visible','off'); xlim([1 nDimTimePoints]);
-  title(fname_epi);
-  subplot(6,1,[2:4]); imagesc(GM'); ylabel(['GM>',tprob{1},' voxels']);
-  set(gca,'ydir','nor'); caxis([-5 5]); hb=colorbar; ylabel(hb,'Change from mean(%)');
-  colormap(sgcolormap('CKM'));
-  subplot(615); plot(gm); ylabel(['mean GM>',tprob{1}]);
-  ha=colorbar; set(ha,'visible','off'); xlim([1 nDimTimePoints]);
-  if PCNum
-    subplot(616); plot(PCs(:,[1:min(6,PCNum)]));
-    ylabel({['Top ',num2str(PCNum),' PCs'], ['from wm+csf>',tprob{2}]});
-  else
-    subplot(616); plot(PCs);
-    ylabel({'Mean wm+csf',['>',tprob{2}]});
-  end
-  ha=colorbar; set(ha,'visible','off'); xlim([1 nDimTimePoints]);
-  title(sprintf('BPF=[%0.2f,%0.2f] Hz',Band));
-  xlabel('TR');
-  screen2png(['cc_plot',output_suffix,'.png']);
-  close(hf);
-  
-  if isfield(EXP,'imageintensity')
-    hf=figure('position',[2237         168         706        1009]);
-    load('rp_arest410.txt');
-    subplot(611); plot([0; l2norm(diff(rp_arest410))]); ylabel('||dm/dt||_2(mm)');
-    ha=colorbar; set(ha,'visible','off'); xlim([1 nDimTimePoints]);
-    title(fname_epi)
-    subplot(6,1,[2:4]); imagesc(imageintensity'); ylabel(['GM>',tprob{1},' voxels']);
-    colormap hot; set(gca,'ydir','nor'); hb=colorbar; ylabel(hb,'Image intensity');
-    subplot(615); plot(gm); ylabel(['mean GM>',tprob{1}]);
-    ha=colorbar; set(ha,'visible','off'); xlim([1 nDimTimePoints]);
-    if PCNum
-      subplot(616); plot(PCs(:,[1:6]));
-      ylabel({['Top ',num2str(PCNum),' PCs'], ['from wm+csf>',tprob{2}]});
-    else
-      subplot(616); plot(PCs);
-      ylabel({'Mean wm+csf',['>',tprob{2}]});
-    end
-    ha=colorbar; set(ha,'visible','off'); xlim([1 nDimTimePoints]);
-    title(sprintf('BPF=[%0.2f,%0.2f] Hz',Band));
-    xlabel('TR');
-    screen2png(['cc_imgval_plot',output_suffix,'.png']);
-    close(hf);
-  end
-end
 end
 
 function [Data, VoxelSize, FileList, Header] = y_ReadAll(InputName)
@@ -356,6 +345,7 @@ function [Data, VoxelSize, FileList, Header] = y_ReadAll(InputName)
 % Child Mind Institute, 445 Park Avenue, New York, NY 10022, USA
 % The Phyllis Green and Randolph Cowen Institute for Pediatric Neuroscience, New York University Child Study Center, New York, NY 10016, USA
 % ycg.yan@gmail.com
+global fig_dpi
 
 if iscell(InputName)
   if size(InputName,1)==1
@@ -389,23 +379,14 @@ elseif length(FileList) == 1
   [Data, VoxelSize, Header] = y_ReadRPI(FileList{1});
 elseif length(FileList) > 1 % A set of 3D images
   [Data, VoxelSize, Header] = y_ReadRPI(FileList{1});
-  Data = zeros([size(Data),length(FileList)]);
-  
-  %   if prod([size(Data),length(FileList),8]) < 1024*1024*1024 %If data is with two many volumes, then it will be converted to the format 'single'.
-  %     for j=1:length(FileList)
-  %       [DataTemp] = y_ReadRPI(FileList{j});
-  %       Data(:,:,:,j) = DataTemp;
-  %     end
-  %   else
-  Data = single(Data);
+  Data = zeros([size(Data),length(FileList)],'single');
   for j=1:length(FileList)
     [DataTemp] = y_ReadRPI(FileList{j});
     Data(:,:,:,j) = single(DataTemp);
   end
-  %   end
+  
 end
 end
-
 
 function [Data_Filtered] = y_IdealFilter(Data, SamplePeriod, Band)
 % FORMAT    [Data_Filtered] = y_IdealFilter(Data, SamplePeriod, Band)
@@ -425,6 +406,7 @@ function [Data_Filtered] = y_IdealFilter(Data, SamplePeriod, Band)
 % The Phyllis Green and Randolph Cowen Institute for Pediatric Neuroscience, New York University Child Study Center, New York, NY 10016, USA
 % ycg.yan@gmail.com
 
+global fig_dpi
 
 sampleFreq 	 = 1/SamplePeriod;
 sampleLength = size(Data,1);
@@ -499,6 +481,8 @@ function [Data, VoxelSize, Header] = y_ReadRPI(FileName, VolumeIndex)
 % The Phyllis Green and Randolph Cowen Institute for Pediatric Neuroscience, New York University Child Study Center, New York, NY 10016, USA
 % ycg.yan@gmail.com
 
+global fig_dpi
+
 if ~exist('VolumeIndex', 'var')
   VolumeIndex='all';
 end
@@ -559,6 +543,7 @@ function [Data, Header] = y_Read(FileName, VolumeIndex)
 % The Phyllis Green and Randolph Cowen Institute for Pediatric Neuroscience, New York University Child Study Center, New York, NY 10016, USA
 % ycg.yan@gmail.com
 
+global fig_dpi
 
 if ~exist('VolumeIndex', 'var')
   VolumeIndex='all';

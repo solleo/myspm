@@ -5,6 +5,9 @@ if ~exist('fname','var')
     fname=fname{end};
   end
 end
+
+try tab=readtable(fname,'delimiter','\t');
+catch
 fid = fopen(fname,'r');
 tab_fmt = '%s %s %f %s %f %f %f %f %f %f %f %f %f %s %f';
 C = textscan(fid,tab_fmt ,'headerlines',1, 'delimiter','\t');
@@ -22,4 +25,5 @@ tab.extent_voxel=C{10};
 tab.mni_xyz=[C{11} C{12} C{13}];
 tab.struct_name=C{14};
 tab.struct_name_prob=C{15};
+end
 end

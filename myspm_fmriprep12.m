@@ -1,187 +1,523 @@
 function EXP = myspm_fmriprep12 (EXP)
 % EXP = myspm_fmriprep12 (EXP)
-% for whole-brain EPI with multiband (thus slice-timing-correction before
-% realignment/unwarping)
+%
+% For preprocessing of EPI and T1w images. This script is based on a batch
+% script included in SPM12.
+% It does slice-timing-correction before realignment/unwarping.
 %
 % This does:
-%   fname_epi -> slice timing correction -> unified unwarp+realign
-%   fname_t1w -> unified segmentation+normalization -> deformation skullstripped t1w into mni 
-%   fname_epi -> Coregister into t1w, normalize into mni, smooting (fwhm=2.5 vox)
+%  (1) fname_t1w -> unified segmentation+normalization -> brain-masking
+%      (skull-stripping) -> normalize into mni
+%  (2) fname_pha/fname_mag -> construct VDM
+%  (3) fname_epi -> slice timing correction -> unified unwarp+realign
+%      -> coregister into t1w (only header) -> denoising (+compcor)
+%      -> normalize into mni (resampling) -> smoothing (default: fwhm=2.5 vox)
 %
 % EXP requires:
-%  .fwhm_mm
-%  .fname_epi
-%  .fname_t1w
-%  .fname_vdm
-% (cc) 2015, sgKIM.   solleo@gmail.com   https://ggooo.wordpress.com
+% [data]
+%  .fname_epi   : a string for a single session
+% (.fname_json) : (or with the same filename as the .nii file to be found)
+%  .fname_t1w   : a string for anatomical image (full path)
+%
+% [Cropping]
+% (.dummy_sec)  : removing first K sec for unsteady-state (adding suffix in TR)
+%
+% [Slice timing correction]
+% * TR_sec, slice_oder_msec, ref_slices_msec can be read from a paired json
+% file of fname_epi
+% (.slice_order_msec) : can be 1-based indices or actual time from the pulse (msec)
+% (.ref_slice_msec)   : reference slice (in the same unit as .slice_order_msec)
+% (.fname_dcm)  : DICOM file of a volume to read slice time (only for SIEMENS scanners)
+% (.stc_fsl)    : use FSL instead of SPM for a very big file
+% (.noSTC)      : for a sparse sampling (e.g. TR>6) STC would make no effect
+%                 or could introduce a strange interpolation between distant time points
+% (.TR_sec)     : can be read from a paired .json file.
+%
+% [Fieldmap: geometric distortion correction]
+% (.fname_mag)  : magnitude a short TE
+% (.fname_pha)  : phase difference
+% * TEs_fmap and totalreadout_msec can be read from paired json files of
+% fname_mag and fname_pha
+% (.TE_fmap)
+% (.totalreadout_msec)
+% (.fname_vdm)  : if it's already computed
+%
+% [Unwarping+realignment]
+%
+%
+% ["Denoising" or motion artifacts suppression]
+% (.bpf)        : (default=[1/128 inf] Hz)
+% (.restbpf)    : 1=[0.009 0.08] Hz from Satterthwaite.2013
+% (.num_pcs)    : 3 [default] # of CompCor regressors to extract
+% (.subjid)     : for motion plots and compcor if FS directory is available
+% (.cov_idx)    : for motion-artifact removal: rp+cc+sc+gs
+% (.out_prefix) : to take a note on threshold selection etc.
+%
+% [Spatial normalization]
+% (.vox_mm)     : resampling resolution for EPI in MNI152 space
+%
+% [Smoothing]
+% (.fwhm_mm)    : smoothing in MNI152 space
+%
+% [Misc.]
+% (.dir_fig)    : a directory to save head motion plots of multiple subjects together
+%
+%
+% (.overwrite)  : 0 [default] or 1
+%
+% This script uses original and modified MATLAB codes by others:
+% - NIFTI toolbox by Jimmy SHEN:
+% - DPARSF by Chao-Gan YAN: http://rfmri.org/DPARSF
+% - SCREEN2JPEG by Sean P. McCARTHY (MALTAB builtin)
+%
+% (cc) 2015,2017,2018. sgKIM. mailto:solleo@gmail.com  https://ggooo.wordpress.com
 
-% this is SPM12-included batch process using SPM12
 a=spm('version');
 if ~strcmp(a(4:5),'12')
-  error('Run this function on SPM12!');
+  error('Run this script on SPM12!');
 end
-
-% find slice timing in msec and repetition time in sec from a example DICOM
-fname_dcm='/scr/vatikan1/skim/Tonotopy/main/dicom/SLET_3T/0014cmrr_mbep2d_lemon_32_rest.dcm'
-[~,res] = mydir(fname_dcm);
-EXP.fname_dcm= res{1};
-hdr = spm_dicom_headers(EXP.fname_dcm);
-slice_order = hdr{1}.Private_0019_1029;
-TR_sec = hdr{1}.RepetitionTime/1000;
-EXP.TR_sec = TR_sec;
-ref_slice_msec = TR_sec*1000/2;        % in msec (when slice_order in given in msec)
-hdr = load_nii_hdr(EXP.fname_epi);
-NumFrames = hdr.dime.dim(5);
-
-if ~isfield(EXP,'vox_mm')
-  vox_mm = round(mean(hdr.dime.pixdim(2:4))*10)/10;
-  EXP.vox_mm = vox_mm;
+if nargin==0, help(mfilename); return; end
+% check NIFTI toolbox
+if isempty(which('load_untouch_nii'))
+  web('https://mathworks.com/matlabcentral/fileexchange/8797-tools-for-nifti-and-analyze-image')
+  error('This script uses NIFTI MATLAB toolbox because it is much faster than spm_vol or MRIread. Please download and path the toolbox.')
 end
-if ~isfield(EXP,'fwhm_mm')
-  fwhm_mm = round(EXP.vox_mm*2.5*10)/10;
-  EXP.fwhm_mm = fwhm_mm;
-end
-
-spm('Defaults','fmri')
+if ~isfield(EXP,'overwrite'), EXP.overwrite =0; end
+if isfield(EXP,'dname_data'), cd(EXP.dname_data); end
+spm('Defaults','fmri');
 spm_jobman('initcfg');
-matlabbatch={};
-% 1. slice timing correction
-ls(EXP.fname_epi);
-for t=1:NumFrames
-  matlabbatch{1}.spm.temporal.st.scans{1}{t} = [EXP.fname_epi,',',num2str(t)];
+
+% try
+%% ---T1w processing---
+%% 1. Unified segmentation
+% outputs:
+% [1]  ${t1w}_seg8.mat : deformation field in native space & meta
+% [2]  y_${t1w}.nii    : cosine functions in template space
+% [3]  c?${t1w}.nii    : tissue prob maps in native space
+% [4]  m${t1w}.nii     : bias-corrected t1w
+% [5]  bm${t1w}.nii    : skull-stripped brain image
+% [6]  wbm${t1w}.nii   : skull-stripped brain image registered in mni152
+[p2,f2,e2]=myfileparts(EXP.fname_t1w);
+EXP.fname_t1w=[p2,'/',f2,e2];
+fname_in = EXP.fname_t1w;
+ls(fname_in);
+fname_out = [p2,'/bm',f2,e2];
+fname_def = [p2,'/y_',f2,e2];
+if ~exist(fname_out,'file') || EXP.overwrite
+  disp('[1] Unified segmentation of T1w..');
+  exp1 = EXP;
+  exp1.norm = 1;
+  myspm_seg12(exp1,'ss')
+  isdone(fname_out,1);
 end
-matlabbatch{1}.spm.temporal.st.nslices = NumFrames;
-matlabbatch{1}.spm.temporal.st.tr = TR_sec;
-matlabbatch{1}.spm.temporal.st.ta = 0; %TR_sec-(TR_sec/NumFrames); %     OR timing = [0 TR] when previous inputs are specified in milliseconds
-matlabbatch{1}.spm.temporal.st.so = slice_order;
-matlabbatch{1}.spm.temporal.st.refslice = ref_slice_msec;
-matlabbatch{1}.spm.temporal.st.prefix = 'a';
 
-% 2. unwarp/realign
-% outputs: 
-%   rigid-body transformation in ${fname_epi}.mat
-%   transformation matrices combined with unwarping in ${fname_epi}_uw.mat
-
-matlabbatch{2}.spm.spatial.realignunwarp.data.scans(1) = cfg_dep('Slice Timing: Slice Timing Corr. Images (Sess 1)', substruct('.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('()',{1}, '.','files'));
-matlabbatch{2}.spm.spatial.realignunwarp.data.pmscan = {[EXP.fname_vdm,',1']};
-matlabbatch{2}.spm.spatial.realignunwarp.eoptions.quality = 0.9;
-matlabbatch{2}.spm.spatial.realignunwarp.eoptions.sep = 4;
-matlabbatch{2}.spm.spatial.realignunwarp.eoptions.fwhm = 5;
-matlabbatch{2}.spm.spatial.realignunwarp.eoptions.rtm = 0;
-matlabbatch{2}.spm.spatial.realignunwarp.eoptions.einterp = 2;
-matlabbatch{2}.spm.spatial.realignunwarp.eoptions.ewrap = [0 0 0];
-matlabbatch{2}.spm.spatial.realignunwarp.eoptions.weight = '';
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.basfcn = [12 12];
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.regorder = 1;
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.lambda = 100000;
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.jm = 0;
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.fot = [4 5];
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.sot = [];
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.uwfwhm = 4;
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.rem = 1;
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.noi = 5;
-matlabbatch{2}.spm.spatial.realignunwarp.uweoptions.expround = 'Average';
-matlabbatch{2}.spm.spatial.realignunwarp.uwroptions.uwwhich = [2 1];
-matlabbatch{2}.spm.spatial.realignunwarp.uwroptions.rinterp = 4;
-matlabbatch{2}.spm.spatial.realignunwarp.uwroptions.wrap = [0 0 0];
-matlabbatch{2}.spm.spatial.realignunwarp.uwroptions.mask = 1;
-matlabbatch{2}.spm.spatial.realignunwarp.uwroptions.prefix = 'u';
-
-% 3. t1w preproc (unified segmentation)
-ls(EXP.fname_t1w);
-matlabbatch{3}.spm.spatial.preproc.channel.vols = {[EXP.fname_t1w,',1']};
-matlabbatch{3}.spm.spatial.preproc.channel.biasreg = 0.001;
-matlabbatch{3}.spm.spatial.preproc.channel.biasfwhm = 60;
-matlabbatch{3}.spm.spatial.preproc.channel.write = [0 1];
-matlabbatch{3}.spm.spatial.preproc.tissue(1).tpm = {'/scr/vatikan1/skim/matlab/spm12/tpm/TPM.nii,1'};
-matlabbatch{3}.spm.spatial.preproc.tissue(1).ngaus = 1;
-matlabbatch{3}.spm.spatial.preproc.tissue(1).native = [1 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(1).warped = [0 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(2).tpm = {'/scr/vatikan1/skim/matlab/spm12/tpm/TPM.nii,2'};
-matlabbatch{3}.spm.spatial.preproc.tissue(2).ngaus = 1;
-matlabbatch{3}.spm.spatial.preproc.tissue(2).native = [1 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(2).warped = [0 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(3).tpm = {'/scr/vatikan1/skim/matlab/spm12/tpm/TPM.nii,3'};
-matlabbatch{3}.spm.spatial.preproc.tissue(3).ngaus = 2;
-matlabbatch{3}.spm.spatial.preproc.tissue(3).native = [1 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(3).warped = [0 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(4).tpm = {'/scr/vatikan1/skim/matlab/spm12/tpm/TPM.nii,4'};
-matlabbatch{3}.spm.spatial.preproc.tissue(4).ngaus = 3;
-matlabbatch{3}.spm.spatial.preproc.tissue(4).native = [0 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(4).warped = [0 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(5).tpm = {'/scr/vatikan1/skim/matlab/spm12/tpm/TPM.nii,5'};
-matlabbatch{3}.spm.spatial.preproc.tissue(5).ngaus = 4;
-matlabbatch{3}.spm.spatial.preproc.tissue(5).native = [0 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(5).warped = [0 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(6).tpm = {'/scr/vatikan1/skim/matlab/spm12/tpm/TPM.nii,6'};
-matlabbatch{3}.spm.spatial.preproc.tissue(6).ngaus = 2;
-matlabbatch{3}.spm.spatial.preproc.tissue(6).native = [0 0];
-matlabbatch{3}.spm.spatial.preproc.tissue(6).warped = [0 0];
-matlabbatch{3}.spm.spatial.preproc.warp.mrf = 1;
-matlabbatch{3}.spm.spatial.preproc.warp.cleanup = 1;
-matlabbatch{3}.spm.spatial.preproc.warp.reg = [0 0.001 0.5 0.05 0.2];
-matlabbatch{3}.spm.spatial.preproc.warp.affreg = 'mni';
-matlabbatch{3}.spm.spatial.preproc.warp.fwhm = 0;
-matlabbatch{3}.spm.spatial.preproc.warp.samp = 3;
-matlabbatch{3}.spm.spatial.preproc.warp.write = [0 1];
-
-% 4. unbias T1w
-matlabbatch{4}.cfg_basicio.file_dir.cfg_fileparts.files(1) = cfg_dep('Segment: Bias Corrected (1)', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','channel', '()',{1}, '.','biascorr', '()',{':'}));
-
-% 5. Skullstripping t1w
-matlabbatch{5}.spm.util.imcalc.input(1) = cfg_dep('Segment: c1 Images', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','tiss', '()',{1}, '.','c', '()',{':'}));
-matlabbatch{5}.spm.util.imcalc.input(2) = cfg_dep('Segment: c2 Images', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','tiss', '()',{2}, '.','c', '()',{':'}));
-matlabbatch{5}.spm.util.imcalc.input(3) = cfg_dep('Segment: c3 Images', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','tiss', '()',{3}, '.','c', '()',{':'}));
-matlabbatch{5}.spm.util.imcalc.input(4) = cfg_dep('Segment: Bias Corrected (1)', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','channel', '()',{1}, '.','biascorr', '()',{':'}));
-matlabbatch{5}.spm.util.imcalc.output = 'Brain';
-matlabbatch{5}.spm.util.imcalc.outdir(1) = cfg_dep('Get Pathnames: Directories (unique)', substruct('.','val', '{}',{4}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','up'));
-matlabbatch{5}.spm.util.imcalc.expression = '(i1 + i2 + i3) .* i4';
-matlabbatch{5}.spm.util.imcalc.var = struct('name', {}, 'value', {});
-matlabbatch{5}.spm.util.imcalc.options.dmtx = 0;
-matlabbatch{5}.spm.util.imcalc.options.mask = 0;
-matlabbatch{5}.spm.util.imcalc.options.interp = 1;
-matlabbatch{5}.spm.util.imcalc.options.dtype = 4;
-
-% 6. coreg: epi to t1w (this only changes header of the EPI image)
-matlabbatch{6}.spm.spatial.coreg.estimate.ref(1) = cfg_dep('Image Calculator: Imcalc Computed Image', substruct('.','val', '{}',{5}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','files'));
-matlabbatch{6}.spm.spatial.coreg.estimate.source(1) = cfg_dep('Realign & Unwarp: Unwarped Mean Image', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','meanuwr'));
-matlabbatch{6}.spm.spatial.coreg.estimate.other(1) = cfg_dep('Realign & Unwarp: Unwarped Images (Sess 1)', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','sess', '()',{1}, '.','uwrfiles'));
-matlabbatch{6}.spm.spatial.coreg.estimate.eoptions.cost_fun = 'nmi';
-matlabbatch{6}.spm.spatial.coreg.estimate.eoptions.sep = [4 2];
-matlabbatch{6}.spm.spatial.coreg.estimate.eoptions.tol = [0.02 0.02 0.02 0.001 0.001 0.001 0.01 0.01 0.01 0.001 0.001 0.001];
-matlabbatch{6}.spm.spatial.coreg.estimate.eoptions.fwhm = [7 7];
-
-% 7. normalization of epi
-matlabbatch{7}.spm.spatial.normalise.write.subj.def(1) = cfg_dep('Segment: Forward Deformations', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','fordef', '()',{':'}));
-matlabbatch{7}.spm.spatial.normalise.write.subj.resample(1) = cfg_dep('Realign & Unwarp: Unwarped Images (Sess 1)', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','sess', '()',{1}, '.','uwrfiles'));
-matlabbatch{7}.spm.spatial.normalise.write.woptions.bb = [-78 -112 -70; 78 76 85];
-matlabbatch{7}.spm.spatial.normalise.write.woptions.vox = [1 1 1]*EXP.vox_mm;
-matlabbatch{7}.spm.spatial.normalise.write.woptions.interp = 4;
-
-% 8. smoothing epi
-matlabbatch{8}.spm.spatial.smooth.data(1) = cfg_dep('Normalise: Write: Normalised Images (Subj 1)', substruct('.','val', '{}',{7}, '.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('()',{1}, '.','files'));
-matlabbatch{8}.spm.spatial.smooth.fwhm = [1 1 1]*EXP.fwhm_mm;
-matlabbatch{8}.spm.spatial.smooth.dtype = 0;
-matlabbatch{8}.spm.spatial.smooth.im = 0;
-if double(int64(EXP.fwhm)) == EXP.fwhm
-  prefix=['s',sprintf('%d',EXP.fwhm)];
+%% ---EPI processing---
+if ~isfield(EXP,'fname_json')
+  [path1,name1,~] = myfileparts(EXP.fname_epi);
+  EXP.fname_json = [path1,'/',name1,'.json'];
+end
+fname_epi = EXP.fname_epi;
+[path1,name1,ext1] = myfileparts(fname_epi);
+fname_epi = [path1,'/',name1,ext1];
+ls(fname_epi)
+%% find TR
+fn_json = EXP.fname_json;
+if ~isfield(EXP,'TR_sec') % manually given?
+  if exist(fn_json,'file') % using json files
+    disp(['Found json file: ',fn_json]);
+    disp(['Reading TR & SliceTiming from json']);
+    json = jsondecode(fileread(fn_json));
+    EXP.TR_sec = json.RepetitionTime; % *** it's SEC!! ***
+  end
+elseif isfield(EXP,'fname_dcm')
+  if exist(fn_dcm,'file')
+    disp(['Found dicom file: ',fname_dcm]);
+    hdr2 = spm_dicom_headers(EXP.fname_dcm);
+    EXP.TR_sec  = hdr2{1}.RepetitionTime/1000; % it's msec!!!
+  end
 else
-  prefix=['s',sprintf('%0.1f',EXP.fwhm)];
+  error('TR cannot be determined!')
 end
-matlabbatch{8}.spm.spatial.smooth.prefix = prefix;
+fprintf('> TR = %i msec\n',EXP.TR_sec*1000);
 
-% 9. normalization of skullstripped t1w
-matlabbatch{9}.spm.spatial.normalise.write.subj.def(1) = cfg_dep('Segment: Forward Deformations', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','fordef', '()',{':'}));
-matlabbatch{9}.spm.spatial.normalise.write.subj.resample(1) = cfg_dep('Image Calculator: Imcalc Computed Image', substruct('.','val', '{}',{5}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','files'));
-matlabbatch{9}.spm.spatial.normalise.write.woptions.bb = [-78 -112 -70; 78 76 85];
-matlabbatch{9}.spm.spatial.normalise.write.woptions.vox = [1 1 1];
-matlabbatch{9}.spm.spatial.normalise.write.woptions.interp = 4;
-
-[p1,~,~] = fileparts(EXP.fname_epi);
-if isempty(p1)
-  p1=pwd;
+%% Cropping dummy scans
+if isfield(EXP,'dummy_sec')
+  fname_epi_old = fname_epi;
+  n = ceil(EXP.dummy_sec / EXP.TR_sec);
+  fprintf('Removing first %i sec (%i volumes)\n',EXP.dummy_sec, n);
+  fname_epi = [path1,'/',name1,'_skip',num2str(n),ext1];
+  if ~exist(fname_epi,'file')
+    unix(['mri_convert --nskip ',num2str(n),' ',fname_epi_old,' ',fname_epi]);
+  end
+  ls(fname_epi)
 end
-fname_matlabbatch=[p1,'/spm12_matlabbatch_fmriprep.mat'];
-save(fname_matlabbatch,'matlabbatch');
-spm_jobman('run', matlabbatch);
+
+%% find slice timing
+hdr = load_nii_hdr(fname_epi);
+NumFrames = hdr.dime.dim(5);
+fprintf('> Number of frames = %i\n',NumFrames);
+
+if exist(fn_json,'file')
+  if ~strcmp(json.Manufacturer,'GE')
+    slice_order_msec = json.SliceTiming*1000;
+    ref_slice_msec = EXP.TR_sec*1000/2;
+  else
+    bxh = parsebxh(EXP.fname_bxh);
+    slice_order_msec = bxh.acquisitiontime_msec;
+    ref_slice_msec = EXP.TR_sec*1000/2;
+  end
+else
+  % if no json
+  if EXP.TR_sec >= 6 && ~isfield(EXP,'noSTC') && ~isfield(EXP,'fname_dcm')
+    warning(['TR is long (>= 6 s) and found no dicom file (.fname_dcm) to read actual slice time. Thus setting .noSTC=1']);
+    disp(['[!] It may possible to use vectors in .slice_order_msec and .ref_slice_msec']);
+    EXP.noSTC=1;
+  end
+  % find slice timing in msec and repetition time in sec from a example DICOM
+  if isfield(EXP,'fname_dcm')
+    hdr2 = spm_dicom_headers(EXP.fname_dcm);
+    if isfield(hdr2{1},'Private_0019_1029') % recent Siemens scanners
+      slice_order_msec = hdr2{1}.Private_0019_1029; % in msec
+    else
+      if ~isfield(EXP,'slice_order')
+        error('Slice timing information cannot be found in the DICOM header!')
+      end
+    end
+    ref_slice_msec = EXP.TR_sec*1000/2;
+  elseif isfield(EXP,'slice_order_msec') 
+    disp(['Found .slice_order_msec; applying those values']);
+    slice_order_msec = EXP.slice_order_msec;
+    ref_slice_msec = EXP.TR_sec*1000/2;
+    EXP.noSTC = 0;
+  else
+    warning('NO slice timing information is given. Creating a link instead of STC...');
+    EXP.noSTC=1;
+  end
+end
+% override of manually given:
+if isfield(EXP,'slice_order_msec')
+  slice_order_msec = EXP.slice_order_msec;
+end
+if isfield(EXP,'ref_slice_msec')
+  ref_slice_msec = EXP.ref_slice_msec;
+end
+
+
+%% 3. slice timing correction
+% output:
+% [1]  a${epi}.nii   : slice-timing corrected EPI
+ls(fname_epi);
+[p1,f1,e1] = myfileparts(fname_epi);
+fname_output = [p1,'/a',f1,e1];
+if ~exist(fname_output,'file') || EXP.overwrite
+  disp('[3] slice timing correction..');
+  disp(['> Slice order (msec) = ',num2str(reshape(slice_order_msec,1,[]))]);
+  disp(['> Reference slice = ',num2str(ref_slice_msec),' msec']);
+  if isfield(EXP,'noSTC') && EXP.noSTC
+    disp(['Create a link for ',fname_epi,' as ',fname_output,'..']);
+    unix(['ln -sf ',fname_epi,' ',fname_output])
+  else
+    if isfield(EXP,'stc_fsl')&&EXP.stc_fsl
+      if isfield(EXP,'fname_dcm')
+        hdr2 = spm_dicom_headers(EXP.fname_dcm);
+        slice_order_msec = hdr2{1}.Private_0019_1029; % in msec
+        T=slice_order_msec'./(EXP.TR_sec*1000); % in TR
+      else
+        T=(EXP.slice_order_msec-1)./max(EXP.slice_order_msec);
+      end
+      fname_stc=[p1,'/',f1,'_timing.txt'];
+      dlmwrite(fname_stc,T)
+      unix(['FSLOUTPUTTYPE=NIFTI; slicetimer.fsl -i ',fname_epi,' -o ',fname_output,...
+        ' --tcustom=',fname_stc,' -r ',num2str(EXP.TR_sec),' -v -d 3'])
+    else
+      st1.scans={};
+      for t=1:NumFrames
+        st1.scans{1}{t,1} = [fname_epi,',',num2str(t)];
+      end
+      st1.nslices = numel(slice_order_msec);
+      st1.tr = EXP.TR_sec;
+      if min(slice_order_msec)<1
+        st1.ta = 0; %OR timing = [0 TR] when previous inputs are specified in milliseconds
+      else
+        st1.ta = EXP.TR_sec-(EXP.TR_sec/st1.nslices);
+      end
+      st1.so = slice_order_msec;
+      st1.refslice = ref_slice_msec;
+      st1.prefix = 'a';
+      matlabbatch={};
+      matlabbatch{1}.spm.temporal.st = st1;
+      fname_matlabbatch=[p1,'/myspm_fmriprep3_',f1,'.mat'];
+      save(fname_matlabbatch,'matlabbatch');
+      spm_jobman('run', matlabbatch);
+    end
+    isdone(fname_out,3);
+  end
+end
+
+%% 4a. preparing VDM
+if isfield(EXP,'fname_mag') && isfield(EXP,'fname_pha')
+  if ~isfield(EXP,'TEs_fmap')
+    [p5,f5,~] = myfileparts(EXP.fname_mag);
+    try
+      json1 = readjson([p5,'/',f5,'.json']);
+      [p5,f5,~] = myfileparts(EXP.fname_pha);
+      json2 = readjson([p5,'/',f5,'.json']);
+      EXP.TEs_fmap = [json1.EchoTime json2.EchoTime]*1000;
+      %         EXP.totalreadout_msec = 1/json2.PixelBandwidth*1000;
+    catch
+      error(['Cannot find json files for fieldmap. ',...
+        'Enter .TEs_fmap and .totalreadout_msec manually']);
+    end
+  end
+  EXP.totalreadout_msec = json.TotalReadoutTime * 1000; % THIS IS of the EPI to unwarp!
+  [~,f_ph,e_ph] = myfileparts(EXP.fname_pha);
+  EXP.fname_vdm = [p1,'/vdm5_sc',f_ph,e_ph];
+  if ~exist(EXP.fname_vdm,'file')
+    myspm_prepare_vdm(EXP.fname_mag, EXP.fname_pha, EXP.TEs_fmap, fname_epi, ...
+      EXP.totalreadout_msec); % coreg of t1w here does not help much...
+  end
+  ls(EXP.fname_vdm)
+end
+
+%% 4. unwarp+realign to MEAN IMAGE
+% outputs:
+% [1]  rp_a${epi}.txt   : six rigid-body motion parameters [mm & rad]
+% [2]  a${epi}.mat      : [4x4xT] realign transform
+% [3]  a${epi}_uw.mat   : unwarping meta data
+% [4]  ua${epi}.nii     : unwarped/realigned image
+% [5]  meanua${epi}.nii : mean image of [4]
+realignunwarp1=[];
+for t=1:NumFrames
+  realignunwarp1.data.scans{t,1} = [p1,'/a',f1,e1,',',num2str(t)];
+end
+if isfield(EXP,'fname_vdm')
+  ls(EXP.fname_vdm)
+  realignunwarp1.data.pmscan = {[EXP.fname_vdm,',1']};
+else
+  realignunwarp1.data.pmscan = {''};
+end
+realignunwarp1.eoptions.quality = 1;
+realignunwarp1.eoptions.sep = 4;
+if isfield(EXP,'realign_sep')
+  realignunwarp1.eoptions.sep = EXP.realign_sep;
+end
+realignunwarp1.eoptions.fwhm = 5;
+realignunwarp1.eoptions.rtm = 1; % because MEAN image is used in coregistration. (although RP is still w.r.t. the 1st image.. could be confusing?)
+realignunwarp1.eoptions.einterp = 2;
+realignunwarp1.eoptions.ewrap = [0 0 0];
+realignunwarp1.eoptions.weight = '';
+realignunwarp1.uweoptions.basfcn = [12 12];
+realignunwarp1.uweoptions.regorder = 1;
+realignunwarp1.uweoptions.lambda = 100000;
+realignunwarp1.uweoptions.jm = 0;
+realignunwarp1.uweoptions.fot = [4 5];
+realignunwarp1.uweoptions.sot = [];
+realignunwarp1.uweoptions.uwfwhm = 4;
+realignunwarp1.uweoptions.rem = 1;
+realignunwarp1.uweoptions.noi = 5;
+realignunwarp1.uweoptions.expround = 'Average';
+realignunwarp1.uwroptions.uwwhich = [2 1];
+realignunwarp1.uwroptions.rinterp = 4;
+realignunwarp1.uwroptions.wrap = [0 0 0];
+realignunwarp1.uwroptions.mask = 1;
+realignunwarp1.uwroptions.prefix = 'u';
+matlabbatch={};
+matlabbatch{1}.spm.spatial.realignunwarp = realignunwarp1;
+fname_in=[p1,'/a',f1,e1];
+ls(fname_in);
+fname_output = [p1,'/ua',f1,e1];
+if ~exist(fname_output,'file') || EXP.overwrite
+  disp('[4] Unwarp & realign..');
+  fname_matlabbatch=[p1,'/myspm_fmriprep4_',f1,'.mat'];
+  save(fname_matlabbatch,'matlabbatch');
+  spm_jobman('run', matlabbatch);
+  
+  % visualize unwarping results:
+  [p2,f2,e2] = myfileparts(EXP.fname_t1w);
+  if strcmp(f2,'uni')
+    fn_t1w = [p2,'/bm',f2,e2];
+  else
+    fn_t1w = [p2,'/',f2,e2];
+  end
+  compare_unwarped([p1,'/a',f1,e1], [p1,'/ua',f1,e1], fn_t1w)
+  isdone(fname_out,4);
+end
+%% 5. Intensity-bias correction of EPI (for stable coregistration)
+fname_epi_unbiased = [p1,'/mmeanua',f1,e1]; % bias-corrected EPI
+if ~exist(fname_epi_unbiased,'file')
+  unix(['mri_nu_correct.mni --i ',p1,'/meanua',f1,e1,' --o ',fname_epi_unbiased]);
+end
+%% 6. Coregistration of EPI to native T1w
+% outputs: <modifying transform matrices in headers>
+% [1]  mmeanua${epi}.nii
+% [2]  ua${epi}.nii        : "other" images, header modified
+% [3]  ua${epi}.mat        : "other" images, header modified (like
+%                            realignment, affine transform matrices for all
+%                            volumes (4x4x#vols)
+estimate1=[];
+fname_t1w_brain     = [p2,'/bm',f2,e2]; % bias-corrected T1w
+estimate1.ref{1}    = fname_t1w_brain;
+ls(fname_t1w_brain)
+fname_epi_unbiased  = [p1,'/mmeanua',f1,e1]; % bias-corrected EPI
+estimate1.source{1} = fname_epi_unbiased ;
+ls(fname_epi_unbiased )
+% ------------------here you specified OTHER imgaes-----------------
+fname_epi_ua = [p1,'/ua',f1,e1];
+ls(fname_epi_ua);
+estimate1.other{1} = fname_epi_ua; % NIFTI-format have only ONE xfm for all volumes (no need to put all frames here)
+% ------------------------------------------------------------------
+estimate1.eoptions.cost_fun = 'nmi';
+estimate1.eoptions.sep = [4 2];
+estimate1.eoptions.tol = ...
+  [0.02 0.02 0.02 0.001 0.001 0.001 0.01 0.01 0.01 0.001 0.001 0.001];
+estimate1.eoptions.fwhm = [7 7];
+matlabbatch={};
+matlabbatch{1}.spm.spatial.coreg.estimate = estimate1;
+fname_out=[p1,'/ua',f1,'.mat'];
+if ~exist(fname_out,'file') || EXP.overwrite
+  disp('[6] Coregistration of EPI to native T1w..');
+  fname_matlabbatch=[p1,'/myspm_fmriprep6_',f1,'.mat'];
+  save(fname_matlabbatch,'matlabbatch');
+  spm_jobman('run', matlabbatch);
+  isdone(fname_out,6);
+end
+
+%% resample the first volume (to check coregistration quality)
+[p4,f4,e4]=myfileparts(fname_epi_unbiased);
+if ~exist([p4,'/r',f4,e4],'file')  || EXP.overwrite
+  matlabbatch={};
+  matlabbatch{1}.spm.spatial.coreg.write.ref{1}    = fname_t1w_brain;
+  matlabbatch{1}.spm.spatial.coreg.write.source{1} = [fname_epi_unbiased,',1'];
+  matlabbatch{1}.spm.spatial.coreg.write.roptions.interp = 4;
+  matlabbatch{1}.spm.spatial.coreg.write.roptions.wrap = [0 0 0];
+  matlabbatch{1}.spm.spatial.coreg.write.roptions.mask = 0;
+  matlabbatch{1}.spm.spatial.coreg.write.roptions.prefix = 'r';
+  spm_jobman('run', matlabbatch);
+  fname_epi_in_t1w=[p1,'/rmmeanua',f1,e1];
+%   myspm_denan(fname_epi_in_t1w,1);
+  slices(fname_epi_in_t1w,...
+    struct('fname_png',[p1,'/rmmeanua',f1,'_in_',f2,'.png'],'contournum',1),...
+    fname_t1w_brain)
+end
+
+%% 7. Compcor
+if ~isfield(EXP,'num_pcs'), EXP.num_pcs=3; end
+if isfield(EXP,'restbpf'), EXP.bpf=[0.009 0.08]; end
+if ~isfield(EXP,'bpf'), EXP.bpf=[0 inf]; end
+exp1=struct('path1',p1, 't1w_suffix',f2, 'bpf', EXP.bpf, ...
+  'TR_sec', EXP.TR_sec, 'num_pcs', EXP.num_pcs, ...
+  'name_epi', ['ua',f1,e1], 'name_t1w', ['bm',f2,e2], ...
+  'dir_data', p1, 'name_rp',['rp_a',f1,'.txt']);
+if isfield(EXP,'nofigure'), exp1.nofigure=EXP.nofigure; end
+cc_suffix= sprintf('n%db%0.2f-%0.2f',EXP.num_pcs, EXP.bpf);
+[~,name1,~]= myfileparts(fname_epi_ua);
+fname_out= [p1,'/',name1,'_',cc_suffix,'_eigenvec.txt'];
+if isfield(EXP,'cov_idx'), exp1.cov_idx=EXP.cov_idx; end
+if isfield(EXP,'dir_fig'), exp1.dir_fig=EXP.dir_fig; end
+if isfield(EXP,'out_prefix'), exp1.out_prefix=EXP.out_prefix; end
+if isfield(EXP,'dir_fs'), exp1.dir_fs=EXP.dir_fs; end
+if isfield(EXP,'subjid'), exp1.subjid=EXP.subjid; end
+if ~exist(fname_out,'file') || EXP.overwrite || isfield(EXP,'cov_idx')
+  disp(['[7] Creating ',num2str(EXP.num_pcs),' anatomical CompCor regressors..']);
+  exp1 = myspm_denoise(exp1);
+  if isfield(exp1,'fname_cov')
+    fname_cov = exp1.fname_cov;
+    EXP.fname_cov = fname_cov;
+    fname_cc = exp1.fname_out;
+  end
+  isdone(fname_out,7);
+end
+
+%% 8. Apply forward deformation on EPI for registration into MNI152
+matlabbatch={};
+write1=[];
+write1.subj.def{1} = fname_def;
+write1.subj.resample{1} = fname_epi_ua;
+write1.woptions.bb = [-78 -112 -70; 78 76 85];
+if ~isfield(EXP,'vox_mm')
+  EXP.vox_mm = hdr.dime.pixdim(2:4);
+  disp(['Resampling at [',num2str(EXP.vox_mm),'] mm in MNI152 space..'])
+end
+if numel(EXP.vox_mm) == 1
+  EXP.vox_mm=[1 1 1]*EXP.vox_mm;
+end
+write1.woptions.vox = EXP.vox_mm;
+write1.woptions.interp = 4;
+matlabbatch{1}.spm.spatial.normalise.write = write1;
+fname_out=[p1,'/wua',f1,e1];
+if ~exist(fname_out,'file') || EXP.overwrite
+  disp('[8] Registration of EPI to MNI152..');
+  fname_matlabbatch=[p1,'/myspm_fmriprep8_',f1,'.mat'];
+  save(fname_matlabbatch,'matlabbatch');
+  spm_jobman('run', matlabbatch);
+%   myspm_denan(fname_out,1);
+  isdone(fname_out,8);
+end
+% quality check:
+fname_png=[p1,'/wua',f1,'_in_mni152.png'];
+fname_epi_in_mni1=[p1,'/wua',f1,'1.nii.gz'];
+setenv('FSLOUTPUTTYPE','NIFTI_GZ');
+unix(['fslroi ',p1,'/wua',f1,e1,' ',fname_epi_in_mni1,' 0 1']);
+% myspm_denan(fname_epi_in_mni1);
+ls(fname_epi_in_mni1);
+fname_mni=[getenv('FSLDIR'),'/data/standard/MNI152_T1_2mm.nii.gz'];
+slices(fname_epi_in_mni1,...
+  struct('fname_png',fname_png,'contournum',1),...
+  fname_mni)
+
+%% (9). Transforming denoised image:
+if exist('fname_cov','var')
+  matlabbatch={};
+  write1=[];
+  write1.subj.def{1} = fname_def;
+  write1.subj.resample{1} = fname_cov;
+  write1.woptions.bb = [-78 -112 -70; 78 76 85];
+  write1.woptions.vox = EXP.vox_mm;
+  write1.woptions.interp = 4;
+  matlabbatch{1}.spm.spatial.normalise.write = write1;
+  [p3,f3,e3]=myfileparts(fname_cov);
+  fname_out=[p3,'/w',f3,e3];
+  if ~exist(fname_out,'file') || EXP.overwrite
+    disp('[9] Registration of denoised EPI to MNI152..');
+    fname_matlabbatch=[p1,'/myspm_fmriprep9_',f1,'.mat'];
+    save(fname_matlabbatch,'matlabbatch');
+    spm_jobman('run', matlabbatch);
+    nii0=load_untouch_nii(fname_cov);
+    bgval=nii0.img(1);
+    nii=load_untouch_nii(fname_out);
+    nii.img(isnan(nii.img))=bgval;
+    save_untouch_nii(nii,fname_out);
+%     myspm_denan(fname_out,1);
+    isdone(fname_out,9);
+  end
+end
+
+%% (10). Smoothing
+if isfield(EXP,'fwhm_mm')
+  myspm_smooth(struct('fname',[p1,'/wua',f1,e1],'fwhm_mm',EXP.fwhm_mm));
+  if exist('fname_cov','var')
+    [p3,f3,e3]=myfileparts(fname_cov);
+    myspm_smooth(struct('fname',[p3,'/wua',f3,e3],'fwhm_mm',EXP.fwhm_mm));
+  end
+end
+
+%   catch ME
+%     warning(ME.identifier, '##### ERROR DURING PROCESSING: %s\n',EXP.fname_epi{j});
+%     warning(ME.identifier, '%s', ME.message);
+%     for iStack=1:numel(ME.stack)
+%       fprintf('#####  In %s (line %i):\n', ...
+%         ME.stack(iStack).file, ME.stack(iStack).line);
+%     end
+%     EXP.ME = ME;
+%     EXP.error_with = EXP.fname_epi{j};
+%   end
+end
+
+%% Subroutines:
+function isdone(fname_out,proci)
+if exist(fname_out,'file')
+  disp(['[',num2str(proci),'] done: ',fname_out])
+else
+  error(['[',num2str(proci),'] failed: ',fname_out,' was not created'])
+end
 end
