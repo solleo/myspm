@@ -1,17 +1,17 @@
-function EXP = myspm_realign(EXP)
-% EXP = myspm_realign(EXP)
+function JOB = myspm_realign(JOB)
+% JOB = myspm_realign(JOB)
 %
 % unified unwarping and realignment
 %
-% EXP requires:
+% JOB requires:
 %  .fname_epi 
 %
 % (cc) 2015, 2019, sgKIM.  solleo@gmail.com  https://ggooo.wordpress.com
 
-if ~isstruct(EXP)
-  EXP=struct('fname_epi',EXP);
+if ~isstruct(JOB)
+  JOB=struct('fname_epi',JOB);
 end
-[p1,f1,e1] = myfileparts(EXP.fname_epi);
+[p1,f1,e1] = myfileparts(JOB.fname_epi);
 fname_in=[p1,'/',f1,e1];
 ls(fname_in);
 

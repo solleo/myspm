@@ -1,9 +1,9 @@
-function APARC = myspm_aparc_aal(EXP)
-% EXP requires:
+function APARC = myspm_aparc_aal(JOB)
+% JOB requires:
 %  .fname_epi_mni
 
 %%- resample AAL for different resolution
-trg=EXP.fname_epi_mni;
+trg=JOB.fname_epi_mni;
 dir1=[spm('dir'),'/toolbox/aal/'];
 src='/tmp/aal2.nii';
 if ~exist(src,'file')
@@ -12,11 +12,11 @@ if ~exist(src,'file')
 end
 nii1 = load_untouch_nii([dir1,'/aal2.nii.gz']);
 
-exp1=[];
-exp1.interp=0;
-exp1.fname_moving=src;
-exp1.fname_fixed=trg;
-myspm_coreg(exp1);
+job1=[];
+job1.interp=0;
+job1.fname_moving=src;
+job1.fname_fixed=trg;
+myspm_coreg(job1);
 
 %%- read AAL parcellation
 nii=load_untouch_nii('/tmp/oaal2.nii');

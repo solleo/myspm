@@ -1,7 +1,7 @@
-function EXP = myspm_check_timeseries (EXP)
-% EXP = myspm_check_timeseries (EXP)
+function JOB = myspm_check_timeseries (JOB)
+% JOB = myspm_check_timeseries (JOB)
 %
-% EXP
+% JOB
 %  .dir_base
 %  .fnames_proc
 %  .names_proc
@@ -11,26 +11,26 @@ function EXP = myspm_check_timeseries (EXP)
 %
 % (cc) 2015, sgKIM.   solleo@gmail.com   https:ggooo.wordpress.com
 
-subjID = fsss_subjID(EXP.subjID);
+subjID = fsss_subjID(JOB.subjID);
 dir0=pwd;
 
-if ~isfield(EXP,'cthres'), cthres = 0.99; else cthres = EXP.cthres; end
+if ~isfield(JOB,'cthres'), cthres = 0.99; else cthres = JOB.cthres; end
 
 for n=1:numel(subjID)
 subjid = subjID{n};
-cd(fullfile(EXP.dir_base,subjid));
+cd(fullfile(JOB.dir_base,subjid));
 
-if ~isfield(EXP,'dir_png')
+if ~isfield(JOB,'dir_png')
 dir_png = pwd;
 else
-dir_png = EXP.dir_png;
+dir_png = JOB.dir_png;
 end
-if isfield(EXP,'names_proc')
-EXP.fname_png=[dir_png,'/',subjid,'_timecourse_', ...
-EXP.names_proc{1},'_vs_',EXP.names_proc{2},'.png'];
+if isfield(JOB,'names_proc')
+JOB.fname_png=[dir_png,'/',subjid,'_timecourse_', ...
+JOB.names_proc{1},'_vs_',JOB.names_proc{2},'.png'];
 else
-EXP.fname_png=[dir_png,'/',subjid,'_timecourse_', ...
-EXP.fnames_proc{1},'_vs_',EXP.fnames_proc{2},'.png'];  end
+JOB.fname_png=[dir_png,'/',subjid,'_timecourse_', ...
+JOB.fnames_proc{1},'_vs_',JOB.fnames_proc{2},'.png'];  end
 
 C={'gm','wm','cf'};
 for c=1:3
@@ -47,7 +47,7 @@ figure('position',[1921  1   824 976]);
 
 for i=1:2
 subplot(5,1,[2*i,2*i+1])
-nii = load_uns_nii(EXP.fnames_proc{i});
+nii = load_uns_nii(JOB.fnames_proc{i});
 d = size(nii.img);
 index = IDX{1}|IDX{2}|IDX{3};
 y=zeros(d(4), sum(index(:)));
@@ -81,14 +81,14 @@ line([0 d(4)]',[tidx(2) tidx(2)]-0.5,'color','w','linewidth',2);
 text(5, tidx(2)+4000, 'CSF','color','w','fontsize',16)
 if i==2, xlabel('TR','fontsize',12); end;
 set(gca,'ydir','nor','xtick',[-5, 0:100:d(4)],'fontsize',12);
-if ~isfield(EXP,'names_proc')
-title(EXP.fnames_proc{i},'interp','none')
+if ~isfield(JOB,'names_proc')
+title(JOB.fnames_proc{i},'interp','none')
 else
-title(EXP.names_proc{i},'fontsize',16);
+title(JOB.names_proc{i},'fontsize',16);
 end
 end
 subplot(5,1,1)
-load(EXP.fname_art,'R');
+load(JOB.fname_art,'R');
 plot(R(:,7)); grid on; box on;
 xlim([1 d(4)]);
 set(gca,'ydir','nor','fontsize',12);
@@ -97,7 +97,7 @@ ylabel(['Mov_Art(mm)'],'fontsize',14, 'interp','none');
 h=colorbar; set(h,'visible','off')
 
 
-screen2png(EXP.fname_png,120);
+screen2png(JOB.fname_png,120);
 close(gcf);
 
 end

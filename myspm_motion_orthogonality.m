@@ -1,6 +1,6 @@
-% function myspm_motion_orthogonality(EXP)
+% function myspm_motion_orthogonality(JOB)
 
-% dir2=EXP.dir_glm;
+% dir2=JOB.dir_glm;
 
 load([dir2,'SPM.mat']);
 mus=SPM.xX.X(:,1:4);

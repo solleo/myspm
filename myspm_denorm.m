@@ -1,10 +1,10 @@
-function EXP = myspm_denorm(EXP)
-% EXP = myspm_denorm(EXP)
+function JOB = myspm_denorm(JOB)
+% JOB = myspm_denorm(JOB)
 %
 % applying inversed normalization (putting back to the native space)
 % saving the outputs in the source directory (can be changed)
 %
-% EXP requires:
+% JOB requires:
 %  .fname_fixed
 %  .fname_moving
 %  .fname_deform (y_*)
@@ -19,16 +19,16 @@ spm('Defaults','fmri');
 % this is SPM12-included batch process using SPM12
 a=spm('version');
 if ~strcmp(a(4:5),'12'),  error(['Run ',mfilename,' on SPM12!']);  end
-if ~isfield(EXP,'interp'), EXP.interp = 4; end % 4-spline as default
+if ~isfield(JOB,'interp'), JOB.interp = 4; end % 4-spline as default
 
 matlabbatch={};
-matlabbatch{1}.spm.util.defs.comp{1}.inv.comp{1}.def = {EXP.fname_deform};
-matlabbatch{1}.spm.util.defs.comp{1}.inv.space  = {EXP.fname_fixed};
-matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {EXP.fname_moving};
-matlabbatch{1}.spm.util.defs.out{1}.pull.interp = EXP.interp;
+matlabbatch{1}.spm.util.defs.comp{1}.inv.comp{1}.def = {JOB.fname_deform};
+matlabbatch{1}.spm.util.defs.comp{1}.inv.space  = {JOB.fname_fixed};
+matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {JOB.fname_moving};
+matlabbatch{1}.spm.util.defs.out{1}.pull.interp = JOB.interp;
 matlabbatch{1}.spm.util.defs.out{1}.pull.mask = 1;
 matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm = [0 0 0];
-if isfield(EXP,'savepwd') && EXP.savepwd
+if isfield(JOB,'savepwd') && JOB.savepwd
   matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.savepwd = 1;
 else
   matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.savesrc = 1;

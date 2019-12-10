@@ -1,5 +1,5 @@
-% function EXP = myspm_aparc(EXP)
-% % EXP = myspm_aparc(EXP)
+% function JOB = myspm_aparc(JOB)
+% % JOB = myspm_aparc(JOB)
 % %
 % % create a look-up-table
 % %
@@ -10,21 +10,21 @@
 % 
 % % 0. set parameters
 % path0=pwd;
-% subjID = fsss_subjID(EXP.subjID);
+% subjID = fsss_subjID(JOB.subjID);
 % Segname={'aparc.a2009s+aseg','aparc+aseg'};
 % Nonbrain={'unknown','CC','Optic-Chiasm','VentralDC','WM-hypointensities','Cerebellum-Cortex', ...
 %  'Ventricle','plexus','vessel','White-Matter','Inf-Lat-Vent','CSF','Brain-Stem'};
-% if ~isfield(EXP,'aparcs'), EXP.aparcs = [1,2]; end
-% if ~isfield(EXP,'prefix'), prefix='o'; else prefix=EXP.prefix; end
-% for k=EXP.aparcs
+% if ~isfield(JOB,'aparcs'), JOB.aparcs = [1,2]; end
+% if ~isfield(JOB,'prefix'), prefix='o'; else prefix=JOB.prefix; end
+% for k=JOB.aparcs
 %  for n=1:numel(subjID)
 %   subjid = subjID{n};
-%   path1=[fullfile(EXP.dir_base,subjid),'/'];
+%   path1=[fullfile(JOB.dir_base,subjid),'/'];
 %   segname = Segname{k};
 %   fname_aparc = [path1,segname,'.nii'];
 %   if ~exist(fname_aparc,'file')
 %    unix(['mri_convert --resample_type nearest ', ...
-%     fullfile(fullfile(EXP.dir_fs,subjid),'mri',[segname,'.mgz']), ...
+%     fullfile(fullfile(JOB.dir_fs,subjid),'mri',[segname,'.mgz']), ...
 %     ' ',fname_aparc]);
 %   end
 %   
@@ -32,12 +32,12 @@
 %    cd(path1)
 %    fname_aparc=[prefix,segname,'.nii'];
 %    if ~exist(fname_aparc,'file')
-%     exp1=[];
-%     exp1.name_fixed  = EXP.name_epi;
-%     exp1.name_moving = EXP.name_t1w; % moving name must be identical to the last one
-%     exp1.name_others = {[path1,segname,'.nii']};
-%     exp1.interp       = 0;
-%     myspm_coreg(exp1);
+%     job1=[];
+%     job1.name_fixed  = JOB.name_epi;
+%     job1.name_moving = JOB.name_t1w; % moving name must be identical to the last one
+%     job1.name_others = {[path1,segname,'.nii']};
+%     job1.interp       = 0;
+%     myspm_coreg(job1);
 %    end
 %   end
 %   

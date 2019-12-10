@@ -1,6 +1,6 @@
-function EXP = myspm_t2adjr2(EXP)
-% EXP = myspm_t2adjr2(EXP)
-% EXP.fname_tmap 
+function JOB = myspm_t2adjr2(JOB)
+% JOB = myspm_t2adjr2(JOB)
+% JOB.fname_tmap 
 %
 % R^2 = t^2 / (t^2 + df)
 % t^2 = DF*R^2 / (1-R^2)
@@ -16,10 +16,10 @@ REF:
 %}
 
 
-if ~isstruct(EXP)
-  fn_tmap = EXP;
+if ~isstruct(JOB)
+  fn_tmap = JOB;
 else
-  fn_tmap = EXP.fname_tmap;
+  fn_tmap = JOB.fname_tmap;
 end
 [p1,f1,e1] = myfileparts(fn_tmap);
 load ([p1,'/SPM.mat'],'SPM');

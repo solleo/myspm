@@ -7,7 +7,7 @@ function y = myy_filter(y, TR, Band)
 %
 % runs y_IdealFilter
 % when the given volume is greater than 91*109*91*100, segments input into
-% 20 segments(but why?)
+% 20 segments for memory 
 %
 % (cc) 2015, sgKIM.  solleo@gmail.com   https://ggooo.wordpress.com
 
@@ -82,7 +82,7 @@ DataMean = repmat(mean(Data),size(Data,1),1);
 Data = Data - DataMean;
 Data = [Data;zeros(paddedLength -sampleLength,size(Data,2))]; %padded with zero
 Data = fft(Data);
-Data(FrequencyMask==0,:) = 0;
+Data(FrequencyMask==0,:) = 0; % sharp transition would cause ringing artifact?!
 Data = ifft(Data);
 Data_Filtered = Data(1:sampleLength,:);
 if exist('demean','var')&&(demean==0)

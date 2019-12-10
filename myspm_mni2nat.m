@@ -7,12 +7,12 @@ nii.img(ijk(1),ijk(2),ijk(3))=1;
 fname0=[tempname,'.nii'];
 save_untouch_nii(nii,fname0);
 
-exp1=[];
-exp1.fname_y=fname_y;
-exp1.fname_ref=fname_nat;
-exp1.fname_input=fname0;
-exp1.fname_interp=0;
-myspm_unnorm(exp1)
+job1=[];
+job1.fname_y=fname_y;
+job1.fname_ref=fname_nat;
+job1.fname_input=fname0;
+job1.fname_interp=0;
+myspm_unnorm(job1)
 
 [p1,f1,e1]=myfileparts(fname0);
 xnii=load_untouch_nii([p1,'/x',f1,e1]);

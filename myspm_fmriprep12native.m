@@ -1,5 +1,5 @@
-function EXP = myspm_fmriprep12native (EXP)
-% EXP = myspm_fmriprep12native (EXP)
+function JOB = myspm_fmriprep12native (JOB)
+% JOB = myspm_fmriprep12native (JOB)
 %
 % NOTE: for analysis in native space, register EPI into t1w
 % For preprocessing of EPI and T1w images. This script is based on a batch
@@ -11,7 +11,7 @@ function EXP = myspm_fmriprep12native (EXP)
 %  (2) fname_t1w -> unified segmentation+normalization -> brain-masking (skull-stripping) -> normalize into mni
 %  (3) fname_epi -> coregister into t1w (resampled) -> smoothing (default: fwhm=2.5 vox)
 %
-% EXP requires:
+% JOB requires:
 % [data]
 % (.dname_data): not to specify for all data files
 %  .fname_epi  : a string for a single session
@@ -67,8 +67,8 @@ if isempty(which('load_untouch_nii'))
   web('https://mathworks.com/matlabcentral/fileexchange/8797-tools-for-nifti-and-analyze-image')
   error('This script uses NIFTI MATLAB toolbox because it is much faster than spm_vol or MRIread. Please download and path the toolbox.')
 end
-if ~isfield(EXP,'overwrite'), EXP.overwrite =0; end
-if isfield(EXP,'dname_data'), cd(EXP.dname_data); end
+if ~isfield(JOB,'overwrite'), JOB.overwrite =0; end
+if isfield(JOB,'dname_data'), cd(JOB.dname_data); end
 spm('Defaults','fmri');
 spm_jobman('initcfg');
 
@@ -82,26 +82,26 @@ spm_jobman('initcfg');
 % [4]  m${t1w}.nii     : bias-corrected t1w
 % [5]  bm${t1w}.nii    : skull-stripped brain image
 % [6]  wbm${t1w}.nii   : skull-stripped brain image registered in mni152
-[p2,f2,e2]=myfileparts(EXP.fname_t1w);
-EXP.fname_t1w=[p2,'/',f2,e2];
-fname_in = EXP.fname_t1w;
+[p2,f2,e2]=myfileparts(JOB.fname_t1w);
+JOB.fname_t1w=[p2,'/',f2,e2];
+fname_in = JOB.fname_t1w;
 ls(fname_in);
 fname_out = [p2,'/bm',f2,e2];
 fname_def = [p2,'/y_',f2,e2];
-if ~exist(fname_out,'file') || EXP.overwrite
+if ~exist(fname_out,'file') || JOB.overwrite
   disp('[1] Unified segmentation of T1w..');
-  exp1 = EXP;
-  exp1.norm = 1;
-  myspm_seg12(exp1,'ss')
+  job1 = JOB;
+  job1.norm = 1;
+  myspm_seg12(job1,'ss')
   isdone(fname_out,1);
 end
 
 %% ---EPI processing---
-if ~isfield(EXP,'fname_json')
-  [path1,name1,~] = myfileparts(EXP.fname_epi);
-  EXP.fname_json = [path1,'/',name1,'.json'];
+if ~isfield(JOB,'fname_json')
+  [path1,name1,~] = myfileparts(JOB.fname_epi);
+  JOB.fname_json = [path1,'/',name1,'.json'];
 end
-fname_epi = EXP.fname_epi;
+fname_epi = JOB.fname_epi;
 [path1,name1,ext1] = myfileparts(fname_epi);
 fname_epi = [path1,'/',name1,ext1];
 ls(fname_epi)
@@ -109,59 +109,59 @@ hdr = load_nii_hdr(fname_epi);
 NumFrames = hdr.dime.dim(5);
 
 % using json files *** it's SEC!! ***
-fn_json = EXP.fname_json;
+fn_json = JOB.fname_json;
 if exist(fn_json,'file')
   disp(['Found json file: ',fn_json]);
   disp(['Reading TR & SliceTiming from json']);
   json = jsondecode(fileread(fn_json));
-  EXP.TR_sec = json.RepetitionTime;
+  JOB.TR_sec = json.RepetitionTime;
   slice_order_msec = json.SliceTiming*1000;
-  ref_slice_msec = EXP.TR_sec*1000/2;
+  ref_slice_msec = JOB.TR_sec*1000/2;
 else
   % if no json
-  if ~isfield(EXP,'TR_sec')
-    EXP.TR_sec=hdr.dime.pixdim(5);
-    if ~EXP.TR_sec
-      error(['TR=0 in the file header; Enter EXP.TR_sec !']);
+  if ~isfield(JOB,'TR_sec')
+    JOB.TR_sec=hdr.dime.pixdim(5);
+    if ~JOB.TR_sec
+      error(['TR=0 in the file header; Enter JOB.TR_sec !']);
     end
   end
-  if EXP.TR_sec >= 6 && ~isfield(EXP,'noSTC') && ~isfield(EXP,'fname_dcm')
+  if JOB.TR_sec >= 6 && ~isfield(JOB,'noSTC') && ~isfield(JOB,'fname_dcm')
     warning(['TR is long (>= 6 s) and found no dicom file (.fname_dcm) to read actual slice time. Thus setting .noSTC=1']);
     disp(['[!] It may possible to use vectors in .slice_order_msec and .ref_slice_msec']);
-    EXP.noSTC=1;
+    JOB.noSTC=1;
   end
   % find slice timing in msec and repetition time in sec from a example DICOM
-  if isfield(EXP,'fname_dcm')
-    hdr2 = spm_dicom_headers(EXP.fname_dcm);
+  if isfield(JOB,'fname_dcm')
+    hdr2 = spm_dicom_headers(JOB.fname_dcm);
     if isfield(hdr2{1},'Private_0019_1029') % recent Siemens scanners
       slice_order_msec = hdr2{1}.Private_0019_1029; % in msec
     else
-      if ~isfield(EXP,'slice_order')
+      if ~isfield(JOB,'slice_order')
         error('Slice timing information cannot be found in the DICOM header!')
       end
     end
-    EXP.TR_sec  = hdr2{1}.RepetitionTime/1000;
-    ref_slice_msec = EXP.TR_sec*1000/2;
+    JOB.TR_sec  = hdr2{1}.RepetitionTime/1000;
+    ref_slice_msec = JOB.TR_sec*1000/2;
     NumFrames = hdr.dime.dim(5);
-  elseif isfield(EXP,'slice_order_msec') && isfield(EXP,'ref_slice_msec')
+  elseif isfield(JOB,'slice_order_msec') && isfield(JOB,'ref_slice_msec')
     disp(['Found .slice_order_msec and .ref_slice_msec; applying those values']);
-    slice_order_msec = EXP.slice_order_msec;
-    ref_slice_msec = EXP.ref_slice_msec;
-    EXP.noSTC = 0;
+    slice_order_msec = JOB.slice_order_msec;
+    ref_slice_msec = JOB.ref_slice_msec;
+    JOB.noSTC = 0;
   else
     warning('NO slice timing information is given. Creating a link instead of STC...');
-    EXP.noSTC=1;
+    JOB.noSTC=1;
   end
 end
-if isfield(EXP,'slice_order_msec')
-  slice_order_msec = EXP.slice_order_msec;
+if isfield(JOB,'slice_order_msec')
+  slice_order_msec = JOB.slice_order_msec;
 end
-if isfield(EXP,'ref_slice_msec')
-  ref_slice_msec = EXP.ref_slice_msec;
+if isfield(JOB,'ref_slice_msec')
+  ref_slice_msec = JOB.ref_slice_msec;
 end
 
 disp(['> Number of frames = ',num2str(NumFrames)]);
-disp(['> TR = ',num2str(EXP.TR_sec),' sec']);
+disp(['> TR = ',num2str(JOB.TR_sec),' sec']);
 
 %% 3. slice timing correction
 % output:
@@ -169,37 +169,37 @@ disp(['> TR = ',num2str(EXP.TR_sec),' sec']);
 ls(fname_epi);
 [p1,f1,e1] = myfileparts(fname_epi);
 fname_output = [p1,'/a',f1,e1];
-if ~exist(fname_output,'file') || EXP.overwrite
+if ~exist(fname_output,'file') || JOB.overwrite
   disp('[3] slice timing correction..');
   disp(['> Slice order (msec) = ',num2str(reshape(slice_order_msec,1,[])),' msec']);
   disp(['> Reference slice = ',num2str(ref_slice_msec),' msec']);
-  if isfield(EXP,'noSTC') && EXP.noSTC
+  if isfield(JOB,'noSTC') && JOB.noSTC
     disp(['Create a link for ',fname_epi,' as ',fname_output,'..']);
     unix(['ln -sf ',fname_epi,' ',fname_output])
   else
-    if isfield(EXP,'stc_fsl')&&EXP.stc_fsl
-      if isfield(EXP,'fname_dcm')
-        hdr2 = spm_dicom_headers(EXP.fname_dcm);
+    if isfield(JOB,'stc_fsl')&&JOB.stc_fsl
+      if isfield(JOB,'fname_dcm')
+        hdr2 = spm_dicom_headers(JOB.fname_dcm);
         slice_order_msec = hdr2{1}.Private_0019_1029; % in msec
-        T=slice_order_msec'./(EXP.TR_sec*1000); % in TR
+        T=slice_order_msec'./(JOB.TR_sec*1000); % in TR
       else
-        T=(EXP.slice_order_msec-1)./max(EXP.slice_order_msec);
+        T=(JOB.slice_order_msec-1)./max(JOB.slice_order_msec);
       end
       fname_stc=[p1,'/',f1,'_timing.txt'];
       dlmwrite(fname_stc,T)
       unix(['FSLOUTPUTTYPE=NIFTI; slicetimer.fsl -i ',fname_epi,' -o ',fname_output,...
-        ' --tcustom=',fname_stc,' -r ',num2str(EXP.TR_sec),' -v -d 3'])
+        ' --tcustom=',fname_stc,' -r ',num2str(JOB.TR_sec),' -v -d 3'])
     else
       st1.scans={};
       for t=1:NumFrames
         st1.scans{1}{t,1} = [fname_epi,',',num2str(t)];
       end
       st1.nslices = numel(slice_order_msec);
-      st1.tr = EXP.TR_sec;
+      st1.tr = JOB.TR_sec;
       if min(slice_order_msec)<1
         st1.ta = 0; %OR timing = [0 TR] when previous inputs are specified in milliseconds
       else
-        st1.ta = EXP.TR_sec-(EXP.TR_sec/st1.nslices);
+        st1.ta = JOB.TR_sec-(JOB.TR_sec/st1.nslices);
       end
       st1.so = slice_order_msec;
       st1.refslice = ref_slice_msec;
@@ -214,28 +214,28 @@ if ~exist(fname_output,'file') || EXP.overwrite
   end
 end
 %% 4a. preparing VDM
-if isfield(EXP,'fname_mag') && isfield(EXP,'fname_pha')
-  if ~isfield(EXP,'TEs_fmap')
-    [p5,f5,~] = myfileparts(EXP.fname_mag);
+if isfield(JOB,'fname_mag') && isfield(JOB,'fname_pha')
+  if ~isfield(JOB,'TEs_fmap')
+    [p5,f5,~] = myfileparts(JOB.fname_mag);
     try
       json1 = readjson([p5,'/',f5,'.json']);
-      [p5,f5,~] = myfileparts(EXP.fname_pha);
+      [p5,f5,~] = myfileparts(JOB.fname_pha);
       json2 = readjson([p5,'/',f5,'.json']);
-      EXP.TEs_fmap = [json1.EchoTime json2.EchoTime]*1000;
-      %         EXP.totalreadout_msec = 1/json2.PixelBandwidth*1000;
+      JOB.TEs_fmap = [json1.EchoTime json2.EchoTime]*1000;
+      %         JOB.totalreadout_msec = 1/json2.PixelBandwidth*1000;
     catch
       error(['Cannot find json files for fieldmap. ',...
         'Enter .TEs_fmap and .totalreadout_msec manually']);
     end
   end
-  EXP.totalreadout_msec = json.TotalReadoutTime * 1000; % THIS IS of the EPI to unwarp!
-  [~,f_ph,e_ph] = myfileparts(EXP.fname_pha);
-  EXP.fname_vdm = [p1,'/vdm5_sc',f_ph,e_ph];
-  if ~exist(EXP.fname_vdm,'file')
-    myspm_prepare_vdm(EXP.fname_mag, EXP.fname_pha, EXP.TEs_fmap, fname_epi, ...
-      EXP.totalreadout_msec); % coreg of t1w here does not help much...
+  JOB.totalreadout_msec = json.TotalReadoutTime * 1000; % THIS IS of the EPI to unwarp!
+  [~,f_ph,e_ph] = myfileparts(JOB.fname_pha);
+  JOB.fname_vdm = [p1,'/vdm5_sc',f_ph,e_ph];
+  if ~exist(JOB.fname_vdm,'file')
+    myspm_prepare_vdm(JOB.fname_mag, JOB.fname_pha, JOB.TEs_fmap, fname_epi, ...
+      JOB.totalreadout_msec); % coreg of t1w here does not help much...
   end
-  ls(EXP.fname_vdm)
+  ls(JOB.fname_vdm)
 end
 %% 4. unwarp+realign to MEAN IMAGE
 % outputs:
@@ -248,16 +248,16 @@ realignunwarp1=[];
 for t=1:NumFrames
   realignunwarp1.data.scans{t,1} = [p1,'/a',f1,e1,',',num2str(t)];
 end
-if isfield(EXP,'fname_vdm')
-  ls(EXP.fname_vdm)
-  realignunwarp1.data.pmscan = {[EXP.fname_vdm,',1']};
+if isfield(JOB,'fname_vdm')
+  ls(JOB.fname_vdm)
+  realignunwarp1.data.pmscan = {[JOB.fname_vdm,',1']};
 else
   realignunwarp1.data.pmscan = {''};
 end
 realignunwarp1.eoptions.quality = 1;
 realignunwarp1.eoptions.sep = 4;
-if isfield(EXP,'realign_sep')
-  realignunwarp1.eoptions.sep = EXP.realign_sep;
+if isfield(JOB,'realign_sep')
+  realignunwarp1.eoptions.sep = JOB.realign_sep;
 end
 realignunwarp1.eoptions.fwhm = 5;
 realignunwarp1.eoptions.rtm = 1; % because MEAN image is used in coregistration. (although RP is still w.r.t. the 1st image.. could be confusing?)
@@ -284,14 +284,14 @@ matlabbatch{1}.spm.spatial.realignunwarp = realignunwarp1;
 fname_in=[p1,'/a',f1,e1];
 ls(fname_in);
 fname_output = [p1,'/ua',f1,e1];
-if ~exist(fname_output,'file') || EXP.overwrite
+if ~exist(fname_output,'file') || JOB.overwrite
   disp('[4] Unwarp & realign..');
   fname_matlabbatch=[p1,'/myspm_fmriprep4_',f1,'.mat'];
   save(fname_matlabbatch,'matlabbatch');
   spm_jobman('run', matlabbatch);
   
   % visualize unwarping results:
-  [p2,f2,e2] = myfileparts(EXP.fname_t1w);
+  [p2,f2,e2] = myfileparts(JOB.fname_t1w);
   if strcmp(f2,'uni')
     fn_t1w = [p2,'/bm',f2,e2];
   else
@@ -332,7 +332,7 @@ estimate1.eoptions.fwhm = [7 7];
 matlabbatch={};
 matlabbatch{1}.spm.spatial.coreg.estimate = estimate1;
 fname_out=[p1,'/ua',f1,'.mat'];
-if ~exist(fname_out,'file') || EXP.overwrite
+if ~exist(fname_out,'file') || JOB.overwrite
   disp('[6] Coregistration of EPI to native T1w..');
   fname_matlabbatch=[p1,'/myspm_fmriprep6_',f1,'.mat'];
   save(fname_matlabbatch,'matlabbatch');
@@ -341,7 +341,7 @@ if ~exist(fname_out,'file') || EXP.overwrite
 end
 %% resample the first volume (to check coregistration quality)
 [p4,f4,e4]=myfileparts(fname_epi_unbiased);
-if ~exist([p4,'/r',f4,e4],'file')  || EXP.overwrite
+if ~exist([p4,'/r',f4,e4],'file')  || JOB.overwrite
   matlabbatch={};
   matlabbatch{1}.spm.spatial.coreg.write.ref{1}    = fname_t1w_brain;
   matlabbatch{1}.spm.spatial.coreg.write.source{1} = [fname_epi_unbiased,',1'];
@@ -357,13 +357,13 @@ if ~exist([p4,'/r',f4,e4],'file')  || EXP.overwrite
     fname_t1w_brain)
 end
 %% and resample all the images:
-if ~exist([p1,'/r',f1,e1],'file')  || EXP.overwrite
-  if ~isfield(EXP,'vox_mm')
-    EXP.vox_mm = hdr.dime.pixdim(2:4);
-    disp(['Resampling at [',num2str(EXP.vox_mm),'] mm in native T1w space..'])
+if ~exist([p1,'/r',f1,e1],'file')  || JOB.overwrite
+  if ~isfield(JOB,'vox_mm')
+    JOB.vox_mm = hdr.dime.pixdim(2:4);
+    disp(['Resampling at [',num2str(JOB.vox_mm),'] mm in native T1w space..'])
   end
-  fname_t1w_brain_ref=[p2,'/bm',f2,'_',num2str(EXP.vox_mm(1)),'mm',e2];
-  unix(['mri_convert -vs ',num2str(EXP.vox_mm),' ',fname_t1w_brain,' ',fname_t1w_brain_ref])
+  fname_t1w_brain_ref=[p2,'/bm',f2,'_',num2str(JOB.vox_mm(1)),'mm',e2];
+  unix(['mri_convert -vs ',num2str(JOB.vox_mm),' ',fname_t1w_brain,' ',fname_t1w_brain_ref])
   
   job = [];
   job.fname_ref = fname_t1w_brain_ref;
@@ -375,52 +375,52 @@ end
 
 
 %% 7. Compcor
-if ~isfield(EXP,'num_pcs'), EXP.num_pcs=3; end
-if isfield(EXP,'restbpf'), EXP.bpf=[0.009 0.08]; end
-if ~isfield(EXP,'bpf'), EXP.bpf=[0 inf]; end
-exp1=struct('path1',p1, 't1w_suffix',f2, 'bpf', EXP.bpf, ...
-  'TR_sec', EXP.TR_sec, 'num_pcs', EXP.num_pcs, ...
+if ~isfield(JOB,'num_pcs'), JOB.num_pcs=3; end
+if isfield(JOB,'restbpf'), JOB.bpf=[0.009 0.08]; end
+if ~isfield(JOB,'bpf'), JOB.bpf=[0 inf]; end
+job1=struct('path1',p1, 't1w_suffix',f2, 'bpf', JOB.bpf, ...
+  'TR_sec', JOB.TR_sec, 'num_pcs', JOB.num_pcs, ...
   'name_epi', ['ua',f1,e1], 'name_t1w', ['bm',f2,e2], ...
   'dir_data', p1, 'name_rp',['rp_a',f1,'.txt']);
-if isfield(EXP,'nofigure'), exp1.nofigure=EXP.nofigure; end
-cc_suffix= sprintf('n%db%0.2f-%0.2f',EXP.num_pcs, EXP.bpf);
+if isfield(JOB,'nofigure'), job1.nofigure=JOB.nofigure; end
+cc_suffix= sprintf('n%db%0.2f-%0.2f',JOB.num_pcs, JOB.bpf);
 [~,name1,~]= myfileparts(fname_epi_ua);
 fname_out= [p1,'/',name1,'_',cc_suffix,'_eigenvec.txt'];
-if isfield(EXP,'cov_idx'), exp1.cov_idx=EXP.cov_idx; end
-if isfield(EXP,'dir_fig'), exp1.dir_fig=EXP.dir_fig; end
-if isfield(EXP,'out_prefix'), exp1.out_prefix=EXP.out_prefix; end
-if isfield(EXP,'dir_fs'), exp1.dir_fs=EXP.dir_fs; end
-if isfield(EXP,'subjid'), exp1.subjid=EXP.subjid; end
-if ~exist(fname_out,'file') || EXP.overwrite || isfield(EXP,'cov_idx')
-  disp(['[7] Creating ',num2str(EXP.num_pcs),' anatomical CompCor regressors..']);
-  exp1 = myspm_denoise(exp1);
-  if isfield(exp1,'fname_cov')
-    fname_cov = exp1.fname_cov;
-    EXP.fname_cov = fname_cov;
-    fname_cc = exp1.fname_out;
+if isfield(JOB,'cov_idx'), job1.cov_idx=JOB.cov_idx; end
+if isfield(JOB,'dir_fig'), job1.dir_fig=JOB.dir_fig; end
+if isfield(JOB,'out_prefix'), job1.out_prefix=JOB.out_prefix; end
+if isfield(JOB,'dir_fs'), job1.dir_fs=JOB.dir_fs; end
+if isfield(JOB,'subjid'), job1.subjid=JOB.subjid; end
+if ~exist(fname_out,'file') || JOB.overwrite || isfield(JOB,'cov_idx')
+  disp(['[7] Creating ',num2str(JOB.num_pcs),' anatomical CompCor regressors..']);
+  job1 = myspm_denoise(job1);
+  if isfield(job1,'fname_cov')
+    fname_cov = job1.fname_cov;
+    JOB.fname_cov = fname_cov;
+    fname_cc = job1.fname_out;
   end
   isdone(fname_out,7);
 end
 
 
 %% (8). Smoothing
-if isfield(EXP,'fwhm_mm')
-  myspm_smooth(struct('fname',[p1,'/rua',f1,e1],'fwhm_mm',EXP.fwhm_mm));
+if isfield(JOB,'fwhm_mm')
+  myspm_smooth(struct('fname',[p1,'/rua',f1,e1],'fwhm_mm',JOB.fwhm_mm));
   if exist('fname_cov','var')
     [p3,f3,e3]=myfileparts(fname_cov);
-    myspm_smooth(struct('fname',[p3,'/rua',f3,e3],'fwhm_mm',EXP.fwhm_mm));
+    myspm_smooth(struct('fname',[p3,'/rua',f3,e3],'fwhm_mm',JOB.fwhm_mm));
   end
 end
 
 %   catch ME
-%     warning(ME.identifier, '##### ERROR DURING PROCESSING: %s\n',EXP.fname_epi{j});
+%     warning(ME.identifier, '##### ERROR DURING PROCESSING: %s\n',JOB.fname_epi{j});
 %     warning(ME.identifier, '%s', ME.message);
 %     for iStack=1:numel(ME.stack)
 %       fprintf('#####  In %s (line %i):\n', ...
 %         ME.stack(iStack).file, ME.stack(iStack).line);
 %     end
-%     EXP.ME = ME;
-%     EXP.error_with = EXP.fname_epi{j};
+%     JOB.ME = ME;
+%     JOB.error_with = JOB.fname_epi{j};
 %   end
 end
 

@@ -1,9 +1,9 @@
-function EXP = myspm_results_montage(EXP)
-% EXP = myspm_results_montage(EXP)
+function JOB = myspm_results_montage(JOB)
+% JOB = myspm_results_montage(JOB)
 %
 % It creates summary montage for a given GLM directory
 %
-% EXP requires:
+% JOB requires:
 % (.dir_glm)    'Nx1' directory to save SPM results (default=pwd)
 % (.slicedim)   [1xN] slice dimension (default=3, axial in RAS)
 % (.fname_t1w)
@@ -12,10 +12,10 @@ function EXP = myspm_results_montage(EXP)
 %
 % (cc) 2018, sgKIM. solleo@gmail.com, https://ggooo.wordpress.com/
 
-if nargin < 1,  EXP=[];  end
-if ~isfield(EXP,'dir_glm'), EXP.dir_glm=pwd; end
+if nargin < 1,  JOB=[];  end
+if ~isfield(JOB,'dir_glm'), JOB.dir_glm=pwd; end
 
-load([EXP.dir_glm,'/SPM.mat']);
+load([JOB.dir_glm,'/SPM.mat']);
 % See if the even contrasts are flipped ones:
 if sum(SPM.xCon(1).c + SPM.xCon(2).c) == 0
   bothsigns=1;
@@ -24,13 +24,13 @@ else
   bothsigns=0;
   K=1:numel(SPM.xCon);
 end
-[~,modelname]=myfileparts(EXP.dir_glm);
-EXP.fnames_png={};
+[~,modelname]=myfileparts(JOB.dir_glm);
+JOB.fnames_png={};
 untilK=numel(K);
-if isfield(EXP,'untilK'), untilK=EXP.untilK; end
+if isfield(JOB,'untilK'), untilK=JOB.untilK; end
 for i=1:untilK
   k=K(i);
-  cfg=EXP;
+  cfg=JOB;
   cfg.SPM=[SPM.xCon(k).STAT,'_',zeropad(k,4)];
   if bothsigns
     cfg.cntrst={SPM.xCon(k).name,SPM.xCon(k+1).name};
@@ -38,14 +38,14 @@ for i=1:untilK
     cfg.cntrst={SPM.xCon(k).name,''};
   end
   cfg.title=[modelname,':',SPM.xCon(k).name];
-  if isfield(EXP,'title_suffix')
-    cfg.title=[cfg.title,' ',EXP.title_suffix];
+  if isfield(JOB,'title_suffix')
+    cfg.title=[cfg.title,' ',JOB.title_suffix];
   end
   if isfield(cfg,'fname_struct') && ~isfield(cfg,'fname_t1w')
     cfg.fname_t1w=cfg.fname_struct;
   end
   if ~isfield(cfg,'tight'), cfg.tight=1; end
-  EXP.fnames_png{i}=imagemontage_20181025(cfg);
+  JOB.fnames_png{i}=imagemontage_20181025(cfg);
 end
 end
 

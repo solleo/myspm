@@ -1,5 +1,5 @@
-function EXP = myspm_fmriprep12_dartel (EXP)
-% EXP = myspm_fmriprep12_dartel (EXP)
+function JOB = myspm_fmriprep12_dartel (JOB)
+% JOB = myspm_fmriprep12_dartel (JOB)
 %
 % For preprocessing of EPI and T1w images. This script is based on a batch
 % script included in SPM12.
@@ -10,7 +10,7 @@ function EXP = myspm_fmriprep12_dartel (EXP)
 %  (2) fname_t1w -> unified segmentation+normalization -> brain-masking (skull-stripping) -> normalize into mni
 %  (3) fname_epi -> coregister into t1w (only header) -> normalize into mni (resampling) -> smoothing (default: fwhm=2.5 vox)
 %
-% EXP requires:
+% JOB requires:
 % [data]
 %  .fname_epi  : a string for a single session; a cell for multiple sessions
 %  .fname_t1w  : a string for anatomical image (full path)
@@ -58,7 +58,7 @@ if isempty(which('load_untouch_nii'))
  error('This script uses NIFTI MATLAB toolbox because it is much faster than spm_vol or MRIread. Please download and path the toolbox.')
 end
 
-if ~isfield(EXP,'overwrite'), EXP.overwrite =0; end
+if ~isfield(JOB,'overwrite'), JOB.overwrite =0; end
 spm('Defaults','fmri');
 spm_jobman('initcfg');
 
@@ -71,12 +71,12 @@ spm_jobman('initcfg');
 % [4]  mwc?${t1w}.nii  : JD modulated TPM in template space
 % [5]  m${t1w}.nii     : bias-corrected t1w
 % [6]  bm${t1w}.nii    : skull-stripped brain image
-[p2,f2,e2]=myfileparts(EXP.fname_t1w);
-EXP.fname_t1w=[p2,'/',f2,e2];
+[p2,f2,e2]=myfileparts(JOB.fname_t1w);
+JOB.fname_t1w=[p2,'/',f2,e2];
 dir_tpm=[spm('dir'),'/tpm'];
 matlabbatch={};
 preproc=[];
-preproc.channel.vols = {[EXP.fname_t1w,',1']};
+preproc.channel.vols = {[JOB.fname_t1w,',1']};
 preproc.channel.biasreg = 0.001;
 preproc.channel.biasfwhm = 60;
 preproc.channel.write = [0 1];
@@ -108,17 +108,17 @@ preproc.warp.mrf = 1;
 preproc.warp.cleanup = 1;
 preproc.warp.reg = [0 0.001 0.5 0.05 0.2];
 preproc.warp.affreg = 'mni';
-if isfield(EXP,'isestern') && EXP.isestern
+if isfield(JOB,'isestern') && JOB.isestern
  preproc.warp.affreg = 'eastern';
 end
 preproc.warp.fwhm = 0;
 preproc.warp.samp = 3;
 preproc.warp.write = [0 1];
 matlabbatch{1}.spm.spatial.preproc = preproc;
-fname_in = EXP.fname_t1w;
+fname_in = JOB.fname_t1w;
 ls(fname_in);
 fname_out = [p2,'/rc1',f2,e2];
-if ~exist(fname_out,'file') || EXP.overwrite
+if ~exist(fname_out,'file') || JOB.overwrite
  disp('[1] Unified segmentation of T1w..');
  fname_matlabbatch=[p2,'/spm12_fmriprep1.mat'];
  save(fname_matlabbatch,'matlabbatch');
@@ -150,8 +150,8 @@ write1.woptions.bb = [-78 -112 -70; 78 76 85];
 write1.woptions.vox = [1 1 1];
 write1.woptions.interp = 4;
 matlabbatch{1}.spm.spatial.normalise.write = write1;
-if ~exist(fname_out,'file') || EXP.overwrite
- disp('[2] Registering T1w to MNI..');
+if ~exist(fname_out,'file') || JOB.overwrite
+ disp('[2] Registering T1w to MNI using DARTEL..');
  fname_matlabbatch=[p2,'/spm12_fmriprep2.mat'];
  save(fname_matlabbatch,'matlabbatch');
  spm_jobman('run', matlabbatch);
@@ -162,12 +162,12 @@ return
 
 %% ---EPI processing---
 % Find filenames
-if ~iscell(EXP.fname_epi)
- EXP.fname_epi = {EXP.fname_epi};
+if ~iscell(JOB.fname_epi)
+ JOB.fname_epi = {JOB.fname_epi};
 end
-for j = 1:numel(EXP.fname_epi)
+for j = 1:numel(JOB.fname_epi)
  % Find parameters of the EPI scan
- fname_epi = EXP.fname_epi{j};
+ fname_epi = JOB.fname_epi{j};
  [path1,name1,ext1] = myfileparts(fname_epi);
  fname_epi = [path1,'/',name1,ext1];
  text1=['[Session ',num2str(j),']:'];
@@ -176,39 +176,39 @@ for j = 1:numel(EXP.fname_epi)
  hdr = load_nii_hdr(fname_epi);
  NumFrames = hdr.dime.dim(5);
  disp(['> Number of frames = ',num2str(NumFrames)]);
- if ~isfield(EXP,'TR_sec')
-  EXP.TR_sec=hdr.dime.pixdim(5);
-  if ~EXP.TR_sec
-   error(['TR=0 in the file header; Enter EXP.TR_sec !']);
+ if ~isfield(JOB,'TR_sec')
+  JOB.TR_sec=hdr.dime.pixdim(5);
+  if ~JOB.TR_sec
+   error(['TR=0 in the file header; Enter JOB.TR_sec !']);
   end
  end
- disp(['> TR = ',num2str(EXP.TR_sec),' sec']);
- if EXP.TR_sec >= 6 && ~isfield(EXP,'noSTC') && ~isfield(EXP,'fname_dcm')
+ disp(['> TR = ',num2str(JOB.TR_sec),' sec']);
+ if JOB.TR_sec >= 6 && ~isfield(JOB,'noSTC') && ~isfield(JOB,'fname_dcm')
   warning(['TR is long (>= 6 s) and found no dicom file (.fname_dcm) to read actual slice time. Thus setting .noSTC=1']);
   disp(['[!] It may possible to use vectors in .slice_order and .ref_slice']);
-  EXP.noSTC=1;
+  JOB.noSTC=1;
  end
  % find slice timing in msec and repetition time in sec from a example DICOM
- if isfield(EXP,'fname_dcm')
-  hdr2 = spm_dicom_headers(EXP.fname_dcm);
+ if isfield(JOB,'fname_dcm')
+  hdr2 = spm_dicom_headers(JOB.fname_dcm);
   if isfield(hdr2{1},'Private_0019_1029') % recent Siemens scanners
    slice_order = hdr2{1}.Private_0019_1029; % this could be also time
   else
-   if ~isfield(EXP,'slice_order')
+   if ~isfield(JOB,'slice_order')
     error('Slice timing information cannot be found in the DICOM header!')
    end
   end
-  EXP.TR_sec  = hdr2{1}.RepetitionTime/1000;
-  ref_slice = EXP.TR_sec/2*1000;  % in msec
+  JOB.TR_sec  = hdr2{1}.RepetitionTime/1000;
+  ref_slice = JOB.TR_sec/2*1000;  % in msec
   NumFrames = hdr.dime.dim(5);
- elseif isfield(EXP,'slice_order') && isfield(EXP,'ref_slice')
+ elseif isfield(JOB,'slice_order') && isfield(JOB,'ref_slice')
   disp(['Found .slice_order and .ref_slice; applying those values']);
-  ref_slice = EXP.ref_slice;
-  slice_order    = EXP.slice_order;
-  EXP.noSTC = 0;
+  ref_slice = JOB.ref_slice;
+  slice_order    = JOB.slice_order;
+  JOB.noSTC = 0;
  else
   warning('NO slice timing information is given. Creating a link instead of STC...');
-  EXP.noSTC=1;
+  JOB.noSTC=1;
  end
  
  %% 3. slice timing correction
@@ -217,9 +217,9 @@ for j = 1:numel(EXP.fname_epi)
  ls(fname_epi);
  [p1,f1,e1] = myfileparts(fname_epi);
  fname_output = [p1,'/a',f1,e1];
- if ~exist(fname_output,'file') || EXP.overwrite
+ if ~exist(fname_output,'file') || JOB.overwrite
   disp('[3] slice timing correction..');
-  if isfield(EXP,'noSTC') && EXP.noSTC
+  if isfield(JOB,'noSTC') && JOB.noSTC
    disp(['Create a link for ',fname_epi,' as ',fname_output,'..']);
    unix(['ln -sf ',fname_epi,' ',fname_output])
   else
@@ -228,11 +228,11 @@ for j = 1:numel(EXP.fname_epi)
     st1.scans{1}{t,1} = [fname_epi,',',num2str(t)];
    end
    st1.nslices = numel(slice_order);
-   st1.tr = EXP.TR_sec;
+   st1.tr = JOB.TR_sec;
    if min(slice_order)<1
     st1.ta = 0; %OR timing = [0 TR] when previous inputs are specified in milliseconds
    else
-    st1.ta = EXP.TR_sec-(EXP.TR_sec/st1.nslices); 
+    st1.ta = JOB.TR_sec-(JOB.TR_sec/st1.nslices); 
    end
    st1.so = slice_order;
    st1.refslice = ref_slice;
@@ -247,16 +247,16 @@ for j = 1:numel(EXP.fname_epi)
  end
  
  %% 4a. preparing VDM
- if isfield(EXP,'fname_mag') && isfield(EXP,'fname_pha') ...
-   && isfield(EXP,'TEs_fmap') && isfield(EXP,'totalreadout_msec')
-  if ~isfield(EXP,'iPAT'), EXP.iPAT=1; end
-  [~,f_ph,e_ph]=myfileparts(EXP.fname_pha);
-  EXP.fname_vdm=[p1,'/vdm5_sc',f_ph,e_ph];
-  if ~exist(EXP.fname_vdm,'file')
-   myspm_prepare_vdm(EXP.fname_mag, EXP.fname_pha, EXP.TEs_fmap, fname_epi, ...
-    EXP.totalreadout_msec, EXP.iPAT, EXP.fname_t1w);
+ if isfield(JOB,'fname_mag') && isfield(JOB,'fname_pha') ...
+   && isfield(JOB,'TEs_fmap') && isfield(JOB,'totalreadout_msec')
+  if ~isfield(JOB,'iPAT'), JOB.iPAT=1; end
+  [~,f_ph,e_ph]=myfileparts(JOB.fname_pha);
+  JOB.fname_vdm=[p1,'/vdm5_sc',f_ph,e_ph];
+  if ~exist(JOB.fname_vdm,'file')
+   myspm_prepare_vdm(JOB.fname_mag, JOB.fname_pha, JOB.TEs_fmap, fname_epi, ...
+    JOB.totalreadout_msec, JOB.iPAT, JOB.fname_t1w);
   end
-  ls(EXP.fname_vdm)
+  ls(JOB.fname_vdm)
  end
  
  %% 4. unwarp+realign to MEAN IMAGE
@@ -270,8 +270,8 @@ for j = 1:numel(EXP.fname_epi)
  for t=1:NumFrames
   realignunwarp1.data.scans{t,1} = [p1,'/a',f1,e1,',',num2str(t)];
  end
- if isfield(EXP,'fname_vdm')
-  realignunwarp1.data.pmscan = {[EXP.fname_vdm,',1']};
+ if isfield(JOB,'fname_vdm')
+  realignunwarp1.data.pmscan = {[JOB.fname_vdm,',1']};
  else
   realignunwarp1.data.pmscan = {''};
  end
@@ -302,7 +302,7 @@ for j = 1:numel(EXP.fname_epi)
  fname_in=[p1,'/a',f1,e1];
  ls(fname_in);
  fname_output = [p1,'/ua',f1,e1];
- if ~exist(fname_output,'file') || EXP.overwrite
+ if ~exist(fname_output,'file') || JOB.overwrite
   disp('[4] Unwarp & realign..');
   fname_matlabbatch=[p1,'/spm12_fmriprep4.mat'];
   save(fname_matlabbatch,'matlabbatch');
@@ -342,7 +342,7 @@ for j = 1:numel(EXP.fname_epi)
  matlabbatch={};
  matlabbatch{1}.spm.spatial.coreg.estimate = estimate1;
  fname_out=[p1,'/ua',f1,'.mat'];
- if ~exist(fname_out,'file') || EXP.overwrite
+ if ~exist(fname_out,'file') || JOB.overwrite
   disp('[6] Coregistration of EPI to native T1w..');
   fname_matlabbatch=[p1,'/spm12_fmriprep6.mat'];
   save(fname_matlabbatch,'matlabbatch');
@@ -351,7 +351,7 @@ for j = 1:numel(EXP.fname_epi)
  end
  %% resample the first volume (to check coregistration quality)
  [p4,f4,e4]=myfileparts(fname_epi_unbiased);
- if ~exist([p4,'/r',f4,e4],'file')  || EXP.overwrite
+ if ~exist([p4,'/r',f4,e4],'file')  || JOB.overwrite
   matlabbatch={};
   matlabbatch{1}.spm.spatial.coreg.write.ref{1}    = fname_t1w_brain;
   matlabbatch{1}.spm.spatial.coreg.write.source{1} = [fname_epi_unbiased,',1'];
@@ -366,31 +366,31 @@ for j = 1:numel(EXP.fname_epi)
    ' -o ',p1,'/rmmeanua',f1,'_in_',f2,'.gif'])
  end
  %% 7. Compcor
- if isfield(EXP,'NOCOMPCOR') && EXP.NOCOMPCOR
+ if isfield(JOB,'NOCOMPCOR') && JOB.NOCOMPCOR
   disp('[7] Skipping CompCor.');
  else
-  if ~isfield(EXP,'num_pcs'), EXP.num_pcs=3; end
-  if isfield(EXP,'restbpf'), EXP.bpf=[0.009 0.08]; end
-  if ~isfield(EXP,'bpf'), EXP.bpf=[0 inf]; end
-  exp1=struct('path1',p1, 't1w_suffix',f2, 'bpf', EXP.bpf, ...
-   'TR_sec', EXP.TR_sec, 'num_pcs', EXP.num_pcs, ...
+  if ~isfield(JOB,'num_pcs'), JOB.num_pcs=3; end
+  if isfield(JOB,'restbpf'), JOB.bpf=[0.009 0.08]; end
+  if ~isfield(JOB,'bpf'), JOB.bpf=[0 inf]; end
+  job1=struct('path1',p1, 't1w_suffix',f2, 'bpf', JOB.bpf, ...
+   'TR_sec', JOB.TR_sec, 'num_pcs', JOB.num_pcs, ...
    'name_epi', ['ua',f1,e1], 'name_t1w', ['bm',f2,e2], ...
    'dir_data', p1, 'name_rp',['rp_a',f1,'.txt']);
-  cc_suffix= sprintf('n%db%0.2f-%0.2f',EXP.num_pcs, EXP.bpf);
+  cc_suffix= sprintf('n%db%0.2f-%0.2f',JOB.num_pcs, JOB.bpf);
   [~,name1,~]= myfileparts(fname_epi_ua);
   fname_out= [p1,'/',name1,'_',cc_suffix,'_eigenvec.txt'];
-  if isfield(EXP,'cov_idx'), exp1.cov_idx=EXP.cov_idx; end
-  if isfield(EXP,'dir_fig'), exp1.dir_fig=EXP.dir_fig; end
-  if isfield(EXP,'out_prefix'), exp1.out_prefix=EXP.out_prefix; end
-  if isfield(EXP,'dir_fs'), exp1.dir_fs=EXP.dir_fs; end
-  if isfield(EXP,'subjid'), exp1.subjid=EXP.subjid; end
-  if ~exist(fname_out,'file') || EXP.overwrite || isfield(EXP,'cov_idx')
-   disp(['[7] Creating ',num2str(EXP.num_pcs),' anatomical CompCor regressors..']);
-   exp1 = myspm_denoise(exp1);
-   if isfield(exp1,'fname_cov')
-    fname_cov = exp1.fname_cov;
-    EXP.fname_cov = fname_cov ;
-    fname_cc = exp1.fname_out;
+  if isfield(JOB,'cov_idx'), job1.cov_idx=JOB.cov_idx; end
+  if isfield(JOB,'dir_fig'), job1.dir_fig=JOB.dir_fig; end
+  if isfield(JOB,'out_prefix'), job1.out_prefix=JOB.out_prefix; end
+  if isfield(JOB,'dir_fs'), job1.dir_fs=JOB.dir_fs; end
+  if isfield(JOB,'subjid'), job1.subjid=JOB.subjid; end
+  if ~exist(fname_out,'file') || JOB.overwrite || isfield(JOB,'cov_idx')
+   disp(['[7] Creating ',num2str(JOB.num_pcs),' anatomical CompCor regressors..']);
+   job1 = myspm_denoise(job1);
+   if isfield(job1,'fname_cov')
+    fname_cov = job1.fname_cov;
+    JOB.fname_cov = fname_cov ;
+    fname_cc = job1.fname_out;
    end
    isdone(fname_out,7);
   end
@@ -401,18 +401,18 @@ for j = 1:numel(EXP.fname_epi)
  write1.subj.def{1} = fname_def;
  write1.subj.resample{1} = fname_epi_ua;
  write1.woptions.bb = [-78 -112 -70; 78 76 85];
- if ~isfield(EXP,'vox_mm')
-  EXP.vox_mm = hdr.dime.pixdim(2:4);
-  disp(['Resampling at [',num2str(EXP.vox_mm),'] mm in MNI152 space..'])
+ if ~isfield(JOB,'vox_mm')
+  JOB.vox_mm = hdr.dime.pixdim(2:4);
+  disp(['Resampling at [',num2str(JOB.vox_mm),'] mm in MNI152 space..'])
  end
- if numel(EXP.vox_mm) == 1
-  EXP.vox_mm=[1 1 1]*EXP.vox_mm;
+ if numel(JOB.vox_mm) == 1
+  JOB.vox_mm=[1 1 1]*JOB.vox_mm;
  end
- write1.woptions.vox = EXP.vox_mm;
+ write1.woptions.vox = JOB.vox_mm;
  write1.woptions.interp = 4;
  matlabbatch{1}.spm.spatial.normalise.write = write1;
  fname_out=[p1,'/wua',f1,e1];
- if ~exist(fname_out,'file') || EXP.overwrite
+ if ~exist(fname_out,'file') || JOB.overwrite
   disp('[8] Registration of EPI to MNI152..');
   fname_matlabbatch=[p1,'/spm12_fmriprep8.mat'];
   save(fname_matlabbatch,'matlabbatch');
@@ -440,12 +440,12 @@ for j = 1:numel(EXP.fname_epi)
   write1.subj.def{1} = fname_def;
   write1.subj.resample{1} = fname_cov;
   write1.woptions.bb = [-78 -112 -70; 78 76 85];
-  write1.woptions.vox = EXP.vox_mm;
+  write1.woptions.vox = JOB.vox_mm;
   write1.woptions.interp = 4;
   matlabbatch{1}.spm.spatial.normalise.write = write1;
   [p3,f3,e3]=myfileparts(fname_cov);
   fname_out=[p3,'/w',f3,e3];
-  if ~exist(fname_out,'file') || EXP.overwrite
+  if ~exist(fname_out,'file') || JOB.overwrite
    disp('[9] Registration of denoised EPI to MNI152..');
    fname_matlabbatch=[p1,'/spm12_fmriprep9.mat'];
    save(fname_matlabbatch,'matlabbatch');

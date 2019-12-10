@@ -137,7 +137,7 @@ end
 % Getting structure names
 %-------------------------------
 if ~isfield(cfg,'atlas')
-  EXP.atlas='fsl';
+  JOB.atlas='fsl';
 end
 if strcmpi(cfg.atlas,'spm12')
   [strc] = myspm_NMatlas(xyz);
@@ -362,52 +362,54 @@ switch Cplot
         G.pst = pst;
   
   
-  %-Plot parameter estimates
-  %======================================================================
-  case 'Contrast estimates and 90% C.I. effect of interest'
-    Ic_eoi = find(contains({SPM.xCon.name},'Effect of interest'));
-    
-    % compute contrast of parameter estimates and 90% C.I.
-    %------------------------------------------------------------------
-    cbeta = SPM.xCon(Ic_eoi).c'*beta;
-    SE    = sqrt(diag(SPM.xCon(Ic_eoi).c'*Bcov*SPM.xCon(Ic_eoi).c));
-    CI    = CI*SE;
-    
-    contrast.contrast      = cbeta;
-    contrast.standarderror = SE;
-    contrast.interval      = 2*CI;
-    assignin('base','contrast',contrast)
-    
-    % bar chart
-    %------------------------------------------------------------------
-    figure(Fgraph)
-    subplot(2,1,2)
-    cla
-    hold on
-    
-    % estimates
-    %------------------------------------------------------------------
-    h     = bar(cbeta);
-    set(h,'FaceColor',Col(2,:))
-    
-    % standard error
-    %------------------------------------------------------------------
-    for j = 1:length(cbeta)
-      line([j j],([CI(j) -CI(j)] + cbeta(j)),...
-        'LineWidth',6,'Color',Col(3,:))
-    end
-    
-    title(TITLE,'FontSize',12)
-    xlabel('regressor')
-    ylabel(['contrast estimate',XYZstr])
-    set(gca,'XLim',[0.4 (length(cbeta) + 0.6)])
-    hold off
-    
-    set(gca, 'xtick',1:numel(cbeta), 'xticklabel',cat(1,SPM.Sess(1).U.name))
-    
-    % set Y to empty so outputs are assigned
-    %------------------------------------------------------------------
-    Y = [];
+%   %-Plot parameter estimates
+%   %======================================================================
+%   case 'Contrast estimates and 90% C.I. effect of interest'
+%     Ic_eoi = find(contains({SPM.xCon.name},'Effect of interest'));
+%     
+%     % compute contrast of parameter estimates and 90% C.I.
+%     %------------------------------------------------------------------
+%     cbeta = SPM.xCon(Ic_eoi).c'*beta;
+%     SE    = sqrt(diag(SPM.xCon(Ic_eoi).c'*Bcov*SPM.xCon(Ic_eoi).c));
+%     CI    = CI*SE;
+%     
+%     contrast.contrast      = cbeta;
+%     contrast.standarderror = SE;
+%     contrast.interval      = 2*CI;
+%     assignin('base','contrast',contrast)
+%     
+%     % bar chart
+%     %------------------------------------------------------------------
+%     figure(Fgraph)
+%     subplot(2,1,2)
+%     cla
+%     hold on
+%     
+%     % estimates
+%     %------------------------------------------------------------------
+%     h     = bar(cbeta);
+%     set(h,'FaceColor',Col(2,:))
+%     
+%     % standard error
+%     %------------------------------------------------------------------
+%     for j = 1:length(cbeta)
+%       line([j j],([CI(j) -CI(j)] + cbeta(j)),...
+%         'LineWidth',6,'Color',Col(3,:))
+%     end
+%     
+%     title(TITLE,'FontSize',12)
+%     xlabel('regressor')
+%     ylabel(['contrast estimate',XYZstr])
+%     set(gca,'XLim',[0.4 (length(cbeta) + 0.6)])
+%             set(gca,'xticklabel',cat(1,SPM.Sess.U.name),...
+%           'xtick',1:length(SPM.Sess.U))
+%     hold off
+%     
+%     set(gca, 'xtick',1:numel(cbeta), 'xticklabel',cat(1,SPM.Sess(1).U.name))
+%     
+%     % set Y to empty so outputs are assigned
+%     %------------------------------------------------------------------
+%     Y = [];
   
   %-Plot parameter estimates
   %======================================================================
@@ -446,7 +448,11 @@ switch Cplot
     title(TITLE,'FontSize',12)
     xlabel('contrast')
     ylabel(['contrast estimate',XYZstr])
-    set(gca,'XLim',[0.4 (length(cbeta) + 0.6)])
+    set(gca,'XLim',[0.4 (length(cbeta) + 0.6)]);
+    if isfield(SPM,'Sess')
+      set(gca,'xticklabel',cat(2,SPM.Sess(1).U.name),...
+        'xtick',1:length(SPM.Sess(1).U))
+    end
     hold off
     
     % set Y to empty so outputs are assigned
@@ -481,7 +487,7 @@ switch Cplot
       yoffset = beta(1);
       y0 = y + yoffset;
       Y1 = Y + yoffset;
-      try xoffset = mean(evalin('base','EXP.vi.val'));
+      try xoffset = mean(evalin('base','JOB.vi.val'));
       catch ME
         xoffset=0;
       end
@@ -506,9 +512,9 @@ switch Cplot
         if cfg.isfmri
           xG=[];
           xG.def='Fitted responses';
-          xG.spec.Ic=1;
-          xG.spec.predicted=1;
-          xG.spec.x.scan=1;
+          xG.spec.Ic = Ic;
+          xG.spec.predicted = 1;
+          xG.spec.x.scan = 1;
           [Y,y,beta,Bcov,G] = spm_graph(SPM,XYZ,xG);
           h(1)=plot(G.x,zscore(y),'.-','MarkerSize',8, 'Color',Col(3,:)); % observed
           h(2)=plot(G.x,zscore(Y),'LineWidth',2,'Color',Col(2,:));        % predicted
@@ -518,6 +524,7 @@ switch Cplot
         elseif all(diff(x(q))) % no duplication of x (thus likely continuous..?)
           h(1)=plot(x(q),y0(q),'o','MarkerSize',8, 'Color',Col(3,:)); %offset adjustment (by sgKIM)
           h(2)=plot(x(q),Y1(q),'LineWidth',2,'Color',Col(2,:));
+        
         else % for discrete values
           try h(2)=plot(x(q),Y1(q),'o','MarkerSize',8,'Color',Col(1,:));
           catch ME
@@ -605,10 +612,13 @@ switch Cplot
           legend(h, {'observed','fitted'},'location',LOC);
         end
         hold off
-        if isfield(SPM,'Sess')
-          % for fMRI, show only first <100 TRs (otherwise it's too dense to see)
-          idx = min([numel(plotdata.x) 100]);
-          set(gca,'xlim',[plotdata.x(1) plotdata.x(idx)])
+        if cfg.isfmri
+          % for fMRI, show only first <200 TRs (otherwise it's too dense to see)
+          % FIND the first peak of the regressor
+          idx1 = max([1 find(Y~=0,1,'first')-20]);
+          idx2 = min([numel(plotdata.x) 180+idx1-1]);
+          % SET xlim for first peak, and 100 TRs later:
+          set(gca,'xlim',[plotdata.x(idx1) plotdata.x(idx2)])
           grid on; box on;
         end
       end
@@ -640,7 +650,7 @@ function [strc, strc_all]=myfsl_atlasquery(mni_xyz, ijkflag, atlasset)
 %   or voxel index (i,j,k) by marking ijkflag
 % with no input arguments, will try to read a coordinate from SPM figure.
 %
-% (cc) 2015. sgKIM. solleo@gmail.com
+% (cc) 2015, 2019. sgKIM. solleo@gmail.com
 
 if ~exist('ijkflag','var')
   ijkflag=0;

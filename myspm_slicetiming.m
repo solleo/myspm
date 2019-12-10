@@ -1,9 +1,9 @@
-function EXP = myspm_slicetiming (EXP)
+function JOB = myspm_slicetiming (JOB)
 % This is a wrapper for myspm_slicetiming12
-% EXP = myspm_slicetiming(EXP)
+% JOB = myspm_slicetiming(JOB)
 %
 % Slice-timing correction after realignment
 % (cc) 2015. sgKIM
 
-EXP = myspm_slicetiming12 (EXP);
+JOB = myspm_slicetiming12 (JOB);
 end

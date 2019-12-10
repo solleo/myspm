@@ -1,7 +1,7 @@
-function EXP = myspm_check_timeseries_pca (EXP)
-% EXP = myspm_check_timeseries_pca (EXP)
+function JOB = myspm_check_timeseries_pca (JOB)
+% JOB = myspm_check_timeseries_pca (JOB)
 %
-% EXP
+% JOB
 %  .dir_base
 %  .fname_proc
 %  .name_proc
@@ -10,23 +10,23 @@ function EXP = myspm_check_timeseries_pca (EXP)
 %
 % (cc) 2015, sgKIM.   solleo@gmail.com   https:ggooo.wordpress.com
 
-subjID = fsss_subjID(EXP.subjID);
+subjID = fsss_subjID(JOB.subjID);
 dir0=pwd;
 NUMBER_OF_ROWS=5;
 for n=1:numel(subjID)
 subjid = subjID{n};
-cd(fullfile(EXP.dir_base,subjid));
-EXP.fname_png=[EXP.dir_png,'/',subjid,'_timecourse_',EXP.name_proc{:},'.png'];
+cd(fullfile(JOB.dir_base,subjid));
+JOB.fname_png=[JOB.dir_png,'/',subjid,'_timecourse_',JOB.name_proc{:},'.png'];
 
-NumProc = numel(EXP.fname_proc);
+NumProc = numel(JOB.fname_proc);
 P=cell(1,NumProc);
 y=cell(1,NumProc);
 p=1;
-P{p} = spm_vol(EXP.fname_proc{p});
+P{p} = spm_vol(JOB.fname_proc{p});
 xyz=[round(P{1}(1).dim(1)/2), round(P{1}(1).dim(2)/2), round(P{1}(1).dim(3)/(2))]';
 y{p} = spm_get_data(P{p},xyz);
 for p=2:NumProc
-P{p} = spm_vol(EXP.fname_proc{p});
+P{p} = spm_vol(JOB.fname_proc{p});
 y{p} = spm_get_data(P{p},xyz);
 end
 dim=[P{1}(1).dim numel(P{1})];
@@ -37,7 +37,7 @@ else
 tp=1:numtp;
 end
 
-ProcNames = EXP.name_proc;
+ProcNames = JOB.name_proc;
 figure;
 set(gcf,'position',[841   206  1075  970]);
 subplot(NUMBER_OF_ROWS,NumProc,[1:NumProc]);
@@ -83,7 +83,7 @@ legend(ProcNames,'location','EastOutside')
 end
 xlim([tp(1) tp(end)])
 
-screen2png(EXP.fname_png,120);
+screen2png(JOB.fname_png,120);
 end
 cd(dir0);
 end

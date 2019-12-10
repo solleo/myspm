@@ -1,22 +1,22 @@
-function myspm_dcm2nii(EXP)
-% myspm_dcm2nii(EXP)
+function myspm_dcm2nii(JOB)
+% myspm_dcm2nii(JOB)
 %
-% EXP requires
+% JOB requires
 % .fnames
 % 
-if ~exist('EXP','var')
- EXP=[];
+if ~exist('JOB','var')
+ JOB=[];
 end
-if ~isfield(EXP,'fnames')
+if ~isfield(JOB,'fnames')
  [~,fnames]=myls('*');
  fnames(isempty(fnames))=[];
 else
- fnames=EXP.fnames;
+ fnames=JOB.fnames;
 end
-if ~isfield(EXP,'dir_out')
+if ~isfield(JOB,'dir_out')
  [dir_out,~,~]=myfileparts(fnames{1});
 else
- dir_out=EXP.dir_out;
+ dir_out=JOB.dir_out;
 end
 
 matlabbatch={};

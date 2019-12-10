@@ -1,7 +1,7 @@
-function EXP=myspm_seg12(EXP,runmode)
-% EXP=myspm_seg12(EXP, [runmode]) runs SPM12 segmentation
+function JOB=myspm_seg12(JOB,runmode)
+% JOB=myspm_seg12(JOB, [runmode]) runs SPM12 segmentation
 %
-% EXP requires:
+% JOB requires:
 %  .fname_t1w  [string]
 % (.ismp2rage) [1x1] default=0 (if 1 use uncorrected input)
 % (.iseastern) [1x1] default=0 (if 1 use East-Asian template for affine transform)
@@ -17,22 +17,22 @@ function EXP=myspm_seg12(EXP,runmode)
 ver = spm('version');
 if ~strcmp(ver(4:5),'12'), error('This function is for SPM12!'); end
 if nargin == 0, help(mfilename); return; end
-if ~isstruct(EXP) && ischar(EXP), EXP=struct('fname_t1w',EXP); end
-if ~isfield(EXP,'ismp2rage'), EXP.ismp2rage=0; end
-if ~isfield(EXP,'iseastern'), EXP.iseastern=0; end
-[p2,f2,e2]=myfileparts(EXP.fname_t1w);
+if ~isstruct(JOB) && ischar(JOB), JOB=struct('fname_t1w',JOB); end
+if ~isfield(JOB,'ismp2rage'), JOB.ismp2rage=0; end
+if ~isfield(JOB,'iseastern'), JOB.iseastern=0; end
+[p2,f2,e2]=myfileparts(JOB.fname_t1w);
 dir_tpm=[spm('dir'),filesep,'tpm'];
-if ~isfield(EXP,'norm'), EXP.norm=0; end
+if ~isfield(JOB,'norm'), JOB.norm=0; end
 if exist('runmode','var')
   switch runmode
     case {'ss'}
-      EXP.mw=zeros(1,6);
-      EXP.norm=1;
+      JOB.mw=zeros(1,6);
+      JOB.norm=1;
   end
 end
 
 preproc=[];
-preproc.channel.vols={[EXP.fname_t1w,',1']};
+preproc.channel.vols={[JOB.fname_t1w,',1']};
 preproc.channel.biasreg=0.001;
 preproc.channel.biasfwhm=60;
 preproc.channel.write=[0 1];
@@ -60,20 +60,20 @@ preproc.tissue(6).tpm={[dir_tpm,filesep,'TPM.nii,6']};
 preproc.tissue(6).ngaus=2;
 preproc.tissue(6).native=[0 0];
 preproc.tissue(6).warped=[0 0];
-if isfield(EXP,'mw')
+if isfield(JOB,'mw')
   for c=1:6
-    preproc.tissue(c).warped(2)=EXP.mw(c);
+    preproc.tissue(c).warped(2)=JOB.mw(c);
   end
 end
-if isfield(EXP,'native')
+if isfield(JOB,'native')
   for c=1:6
-    preproc.tissue(c).native(1)=EXP.native(c);
+    preproc.tissue(c).native(1)=JOB.native(c);
   end
 end
 preproc.warp.mrf=1;
 preproc.warp.cleanup=1;
 preproc.warp.reg=[0 0.001 0.5 0.05 0.2];
-if EXP.iseastern
+if JOB.iseastern
   preproc.warp.affreg='eastern';
 else
   preproc.warp.affreg='mni';
@@ -84,8 +84,8 @@ preproc.warp.write=[0 1];
 
 matlabbatch={};
 matlabbatch{1}.spm.spatial.preproc=preproc;
-ls(EXP.fname_t1w);
-if EXP.ismp2rage
+ls(JOB.fname_t1w);
+if JOB.ismp2rage
   fname_out=[p2,filesep,'b',f2,e2];
 else
   fname_out=[p2,filesep,'bm',f2,e2];
@@ -100,7 +100,7 @@ if ~exist(fname_out,'file')
     V=spm_vol_nifti([p2,filesep,'c',num2str(c),f2,e2]);
     [Y{c},~]=spm_read_vols(V);
   end
-  if EXP.ismp2rage
+  if JOB.ismp2rage
     V=spm_vol_nifti([p2,filesep,'',f2,e2]);
   else
     V=spm_vol_nifti([p2,filesep,'m',f2,e2]);
@@ -119,14 +119,14 @@ if ~exist(fname_out,'file')
   end
 end
 
-if EXP.norm
+if JOB.norm
   [p3,f3,e3] = myfileparts(fname_out);
   if ~exist([p3,filesep,'w',f3,e3],'file')
-    exp1 = [];
-    exp1.fname_deform = [p2,filesep,'y_',f2,e2];
-    exp1.vox_mm = [1 1 1];
-    exp1.fname_moving = fname_out;
-    myspm_norm(exp1)
+    job1 = [];
+    job1.fname_deform = [p2,filesep,'y_',f2,e2];
+    job1.vox_mm = [1 1 1];
+    job1.fname_moving = fname_out;
+    myspm_norm(job1)
     fname_out=[p3,filesep,'w',f3,e3];
     ls(fname_out);
     

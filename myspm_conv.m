@@ -1,7 +1,7 @@
-function EXP = myspm_conv(EXP)
-% convolute a given timeseries EXP.u and returns EXP.uc
+function JOB = myspm_conv(JOB)
+% convolute a given timeseries JOB.u and returns JOB.uc
 %
-% EXP requires:
+% JOB requires:
 %  .u
 %  .TR_sec
 % (.hrfname') can be 'hrf' (default), or
@@ -20,14 +20,14 @@ function EXP = myspm_conv(EXP)
 %
 % ref: http://spm.martinpyka.de/?p=41
 % (cc) 2017, sgKIM.
-if ~isfield(EXP,'hrfname'), EXP.hrfname='hrf'; end
+if ~isfield(JOB,'hrfname'), JOB.hrfname='hrf'; end
 
-xBF = struct('dt',EXP.TR_sec, 'name',EXP.hrfname);
+xBF = struct('dt',JOB.TR_sec, 'name',JOB.hrfname);
 xBF = spm_get_bf(xBF);
-U.u = reshape(EXP.u, [numel(EXP.u) 1]);
+U.u = reshape(JOB.u, [numel(JOB.u) 1]);
 U.name = {''};
-EXP.uc = spm_Volterra(U, xBF.bf);
-EXP.xBF = xBF;
+JOB.uc = spm_Volterra(U, xBF.bf);
+JOB.xBF = xBF;
 end
 
 %% test:

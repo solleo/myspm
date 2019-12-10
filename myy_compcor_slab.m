@@ -1,5 +1,5 @@
-function EXP = myy_compcor_slab(EXP)
-% EXP = myy_compcor_slab(EXP)
+function JOB = myy_compcor_slab(JOB)
+% JOB = myy_compcor_slab(JOB)
 %
 % It extracts CompCor regressors (from csf/wm>.99) and global signal (gm>.99)
 % for partial FOV (slab) EPI
@@ -9,37 +9,37 @@ function EXP = myy_compcor_slab(EXP)
 % (cc) 2015, 2016, sgKIM.   solleo@gmail.com   https://ggooo.wordpress.com
 
 path0=pwd;
-subjid = fsss_subjID(EXP.subjid);
+subjid = fsss_subjID(JOB.subjid);
 subjid = subjid{1};
-if ~isfield(EXP,'prefix'), EXP.prefix='o';  end
-if ~isfield(EXP,'t1w_suffix'), EXP.t1w_suffix='t1w'; end
-if ~isfield(EXP,'overwrite'), overwrite=[0 0 0]; else, overwrite=EXP.overwrite; end
-EXP0 = EXP;
-if ~isfield(EXP,'dir_func') || sum(overwrite)
+if ~isfield(JOB,'prefix'), JOB.prefix='o';  end
+if ~isfield(JOB,'t1w_suffix'), JOB.t1w_suffix='t1w'; end
+if ~isfield(JOB,'overwrite'), overwrite=[0 0 0]; else, overwrite=JOB.overwrite; end
+JOB0 = JOB;
+if ~isfield(JOB,'dir_func') || sum(overwrite)
 dir_func = ['/scr/vatikan3/Tonotopy/func/',subjid,'/'];
 else
-dir_func = [fullfile(EXP.dir_func),'/'];
+dir_func = [fullfile(JOB.dir_func),'/'];
 end
 % directory for figures
-if ~isfield(EXP,'dir_figure')
-dir_figure = [EXP.dir_base,'/',subjid,'/fig_denoise'];
+if ~isfield(JOB,'dir_figure')
+dir_figure = [JOB.dir_base,'/',subjid,'/fig_denoise'];
 else
-dir_figure = EXP.dir_figure;
+dir_figure = JOB.dir_figure;
 end
-EXP.dir_figure = dir_figure;
+JOB.dir_figure = dir_figure;
 [~,~]=mkdir(dir_figure);
 
-for r=1:EXP.num_runs
-EXP=EXP0;
+for r=1:JOB.num_runs
+JOB=JOB0;
 ridx = num2str(r);
-dir_run = fullfile(EXP.dir_fs,subjid,EXP.fsd,pad(r,3));
+dir_run = fullfile(JOB.dir_fs,subjid,JOB.fsd,pad(r,3));
 
 %% 0. work in the volume working directory
 cd(dir_func);
 % find the epi file
-idx=strfind(EXP.name_epi,'?');
-EXP.name_epi = [EXP.name_epi(1:idx-1),num2str(r),EXP.name_epi(idx+1:end)];
-fname_epi = fullfile(dir_func, EXP.name_epi);
+idx=strfind(JOB.name_epi,'?');
+JOB.name_epi = [JOB.name_epi(1:idx-1),num2str(r),JOB.name_epi(idx+1:end)];
+fname_epi = fullfile(dir_func, JOB.name_epi);
 [~,suffix,~] = fileparts(fname_epi);
 
 %% I-1. define EPI "brain area" stringently ("-F"="-f 0.3")
@@ -55,34 +55,34 @@ end
 
 %% II. bring segmentations in native to functional space (epi-slab)
 %% II-1. prepare NIFTI file in "FS" space.
-if ~isfield(EXP,'dir_7t') || overwrite(2)
-dir_7t = [EXP.dir_base,subjid];
+if ~isfield(JOB,'dir_7t') || overwrite(2)
+dir_7t = [JOB.dir_base,subjid];
 else
-dir_7t = EXP.dir_7t;
+dir_7t = JOB.dir_7t;
 end
-fname_brainmask = fullfile(EXP.dir_fs,subjid,'mri','brainmask.nii');
+fname_brainmask = fullfile(JOB.dir_fs,subjid,'mri','brainmask.nii');
 if ~exist(fname_brainmask,'file') || overwrite(2)
-unix(['mri_convert ',fullfile(EXP.dir_fs,subjid,'mri','brainmask.mgz'),' ', ...
+unix(['mri_convert ',fullfile(JOB.dir_fs,subjid,'mri','brainmask.mgz'),' ', ...
 fname_brainmask]);
 end
 
 %% II-2. Transform TPM (in native space) into freesurfer space "fs"
-exp1=[];
-exp1.name_fixed  = fname_brainmask;
-ls(exp1.name_fixed)
-exp1.name_moving = [dir_7t,'/UNI.nii'];
-ls(exp1.name_moving)
+job1=[];
+job1.name_fixed  = fname_brainmask;
+ls(job1.name_fixed)
+job1.name_moving = [dir_7t,'/UNI.nii'];
+ls(job1.name_moving)
 for c=1:3
-exp1.name_others{c}=[dir_7t,'/c',num2str(c),'UNI.nii'];
-ls(exp1.name_others{c})
+job1.name_others{c}=[dir_7t,'/c',num2str(c),'UNI.nii'];
+ls(job1.name_others{c})
 end
-exp1.prefix='fs';
+job1.prefix='fs';
 if ~exist([dir_7t,'/fsc',num2str(c),'UNI.nii'],'file') || overwrite(2)
-exp1.overwrite=1;
-myspm_coreg(exp1); % t1w(native) -> t1w(fs)
+job1.overwrite=1;
+myspm_coreg(job1); % t1w(native) -> t1w(fs)
 end
 for c=1:3
-EXP.tprob{c} = '.99';
+JOB.tprob{c} = '.99';
 end
 
 %% II-3. Transform (fs)TPM into the EPI-slab space
@@ -93,7 +93,7 @@ if ~exist(fullfile(dir_func,['c',num2str(c),'UNI_run',ridx,'.nii']), 'file') ...
 fname_dat = [dir_run,'/register.dof6.dat']; % epi(slab) -> t1w(FS)
 if ~exist(fname_dat,'file') || overwrite(2)
 fname_epiwb=[dir_func,'/epiwb_brain.nii'];
-fsfast_bbr(EXP.dir_fs, subjid, fname_mepibrain, fname_dat, fname_epiwb)
+fsfast_bbr(JOB.dir_fs, subjid, fname_mepibrain, fname_dat, fname_epiwb)
 end
 for c=1:3
 fname_tpm     = [dir_7t,'/fsc',num2str(c),'UNI.nii'];
@@ -107,34 +107,34 @@ end
 ls(fname_tpm_epi)
 end
 end
-EXP.fname_masks  = {fullfile(dir_func,['fsc2UNI_run',ridx,'.nii']), ...
+JOB.fname_masks  = {fullfile(dir_func,['fsc2UNI_run',ridx,'.nii']), ...
 fullfile(dir_func,['fsc3UNI_run',ridx,'.nii'])}; % for compcor
-ls(EXP.fname_masks{end})
-EXP.fname_gmmask = fullfile(dir_func,['fsc1UNI_run',ridx,'.nii']);
-ls(EXP.fname_gmmask)
+ls(JOB.fname_masks{end})
+JOB.fname_gmmask = fullfile(dir_func,['fsc1UNI_run',ridx,'.nii']);
+ls(JOB.fname_gmmask)
 
 %% III. let's run y_compcor
 % find EPI filename prefix
 [~,f1,e1]=fileparts(fname_epi);
-EXP.name_epi = [f1,e1];
-%prefix = [EXP.fsd(end-2:end),num2str(r)];
-prefix = [EXP.fsd(5:7),num2str(r)];
-EXP.epiprefix = prefix;
+JOB.name_epi = [f1,e1];
+%prefix = [JOB.fsd(end-2:end),num2str(r)];
+prefix = [JOB.fsd(5:7),num2str(r)];
+JOB.epiprefix = prefix;
 
 % find rigid-motion parameters
-EXP.fname_rp = [dir_func,'rp_',prefix,'.txt'];
-ls(EXP.fname_rp)
+JOB.fname_rp = [dir_func,'rp_',prefix,'.txt'];
+ls(JOB.fname_rp)
 
 % find prefix
-if ~isfield(EXP,'bpf1'),    EXP.bpf1 = [1/128 Inf]; end
-if ~isfield(EXP,'num_pcs'), EXP.num_pcs = inf; end
+if ~isfield(JOB,'bpf1'),    JOB.bpf1 = [1/128 Inf]; end
+if ~isfield(JOB,'num_pcs'), JOB.num_pcs = inf; end
 
-output_suffix=sprintf('_nAllf%0.2f-%0.2f', EXP.bpf1);
-EXP.output_suffix = output_suffix;
+output_suffix=sprintf('_nAllf%0.2f-%0.2f', JOB.bpf1);
+JOB.output_suffix = output_suffix;
 fname_cc = [dir_func,'cc_',prefix,'_eigvec',output_suffix,'.txt'];
 if ~exist(fname_cc,'file') || overwrite(3)
 disp(['# computing all CompCor regressors..']);
-y_CompCor_PC(EXP);
+y_CompCor_PC(JOB);
 end
 
 end % of run-loop
@@ -143,7 +143,7 @@ cd(path0);
 end
 
 
-function EXP = y_CompCor_PC(EXP)
+function JOB = y_CompCor_PC(JOB)
 % FORMAT [PCs] = y_CompCor_PC(ADataDir,Nuisance_MaskFilename, OutputName, PCNum, IsNeedDetrend, Band, TR, IsVarianceNormalization)
 % Input:
 %   ADataDir    -  The data direcotry
@@ -165,24 +165,24 @@ function EXP = y_CompCor_PC(EXP)
 % Child Mind Institute, 445 Park Avenue, New York, NY 10022, USA
 % The Phyllis Green and Randolph Cowen Institute for Pediatric Neuroscience, New York University Child Study Center, New York, NY 10016, USA
 
-%[EXP.PCs, EXP.eigval, EXP.GMs] = y_CompCor_PC(EXP.fname_epi, EXP.fname_masks, '', EXP.num_pcs, ...
-% EXP.detrend, FilterBand, TR_sec, EXP.varnorm, output_suffix, EXP.fname_gmmask, EXP.fname_epi, tprob, EXP);
+%[JOB.PCs, JOB.eigval, JOB.GMs] = y_CompCor_PC(JOB.fname_epi, JOB.fname_masks, '', JOB.num_pcs, ...
+% JOB.detrend, FilterBand, TR_sec, JOB.varnorm, output_suffix, JOB.fname_gmmask, JOB.fname_epi, tprob, JOB);
 
-ADataDir                = EXP.name_epi;
+ADataDir                = JOB.name_epi;
 fname_epi               = fullfile(pwd,ADataDir);
-Nuisance_MaskFilename   = EXP.fname_masks;
-gm_mask                 = EXP.fname_gmmask;
-tprob                   = EXP.tprob;
-%PCNum                   = EXP.num_pcs;
+Nuisance_MaskFilename   = JOB.fname_masks;
+gm_mask                 = JOB.fname_gmmask;
+tprob                   = JOB.tprob;
+%PCNum                   = JOB.num_pcs;
 PCNum = 16;
 IsNeedDetrend           = 1;
-Band                    = EXP.bpf1;
-TR                      = EXP.TR_sec;
+Band                    = JOB.bpf1;
+TR                      = JOB.TR_sec;
 IsVarianceNormalization = 1;
-output_suffix           = EXP.output_suffix;
+output_suffix           = JOB.output_suffix;
 
-[p1,~,e1] = fileparts(EXP.name_epi);
-boldtxt = EXP.epiprefix;
+[p1,~,e1] = fileparts(JOB.name_epi);
+boldtxt = JOB.epiprefix;
 
 if ~exist('CUTNUMBER','var')
 CUTNUMBER = 20;
@@ -262,12 +262,12 @@ end
 %eigval = diag(S);
 
 % let's do PCA
-[~, SCORE, ~, ~, EXPLAINED] = pca(double(AllVolume));
+[~, SCORE, ~, ~, JOBLAINED] = pca(double(AllVolume));
 PCs = SCORE;
-eigval=EXPLAINED;
+eigval=JOBLAINED;
 xvar=cumsum(eigval)/sum(eigval)*100;
 
-if ~isfield(EXP,'nofigure')
+if ~isfield(JOB,'nofigure')
 hf=figure('position',[2237         134         560         634]);
 subplot(311)
 plot(eigval,'b');
@@ -295,7 +295,7 @@ line([PCNum,PCNum]', [ylim0(1) ylim0(2)]','color','r');
 title([num2str(xvar(PCNum)),'% with ',num2str(PCNum),'PCs',])
 xlim([1 50]);
 
-screen2png([EXP.dir_figure,'/cc_',boldtxt,'_eigval',output_suffix,'.png']);
+screen2png([JOB.dir_figure,'/cc_',boldtxt,'_eigval',output_suffix,'.png']);
 close(hf);
 end
 save(fullfile(path1,['cc_',boldtxt,'_eigval',output_suffix,'.txt']), ...
@@ -304,12 +304,12 @@ save(fullfile(path1,['cc_',boldtxt,'_eigvec',output_suffix,'.txt']), 'PCs', '-AS
 save(fullfile(path1,['cc_',boldtxt,'_gs.txt']), 'gm', '-ASCII', '-DOUBLE','-TABS')
 fprintf('\nFinished Extracting principle components for CompCor Correction.\n');
 
-if ~isfield(EXP,'gm_thrs_std'),  EXP.gm_thrs_std  = 5;    end
-if ~isfield(EXP,'mov_thrs_mm'),  EXP.mov_thrs_mm  = 0.5;    end
-if ~isfield(EXP,'mov_thrs_deg'), EXP.mov_thrs_deg = 0.005; end
+if ~isfield(JOB,'gm_thrs_std'),  JOB.gm_thrs_std  = 5;    end
+if ~isfield(JOB,'mov_thrs_mm'),  JOB.mov_thrs_mm  = 0.5;    end
+if ~isfield(JOB,'mov_thrs_deg'), JOB.mov_thrs_deg = 0.005; end
 
-if ~isfield(EXP,'nofigure')
-R = load(EXP.fname_rp);
+if ~isfield(JOB,'nofigure')
+R = load(JOB.fname_rp);
 rmparam = [0; rms(diff(R),2)]; % length of derivarate (only for plot?)
 load(fullfile(path1,['cc_',boldtxt,'_gs.txt']), 'gm');
 load(fullfile(path1,['cc_',boldtxt,'_eigvec',output_suffix,'.txt']),'PCs');
@@ -333,7 +333,7 @@ ylabel({['Top ',num2str(PCNum),' PCs'], ['from wm+csf>',tprob{2}]});
 ha=colorbar; set(ha,'visible','off'); xlim([1 nDimTimePoints]);
 title(sprintf('BPF=[%0.2f,%0.2f] Hz',Band));
 xlabel('TR');
-screen2png([EXP.dir_figure,'/cc_',boldtxt,'_plot',output_suffix,'.png']);
+screen2png([JOB.dir_figure,'/cc_',boldtxt,'_plot',output_suffix,'.png']);
 close(hf);
 
 end

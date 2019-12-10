@@ -1,64 +1,64 @@
-function EXP = myspm_rsfc_example(EXP)
+function JOB = myspm_rsfc_example(JOB)
 
 
-EXP.subjID = fsss_subjID(EXP.subjID);
+JOB.subjID = fsss_subjID(JOB.subjID);
 
 %% 1. fmri/t1w preprocessing: STC + unwarp/realignment (rigid-motion param)
 %  .fwhm_mm
 %  .fname_epi
 %  .fname_t1w
 %  .fname_vdm
-EXP = myspm_fmriprep12_func(EXP); % 'a' for STC; 'u' for unwarping/realign
+JOB = myspm_fmriprep12_func(JOB); % 'a' for STC; 'u' for unwarping/realign
 
 %% 2. Scrubbing regressor by ART
 
-EXP=[];
-EXP.dir_base='/scr/vatikan3/APConn/rest12.410/';
-EXP.subjID = subjID17;
-EXP.name_epi='uarest410.nii';
-EXP.name_rp ='rp_arest410.txt';
-EXP.dir_figure='/scr/vatikan3/APConn/rest12.410/fig_denoising';
-EXP.global_threshold=3;
-EXP.motion_threshold=0.5;
-EXP = myspm_art(EXP); % to make sure that you don't need scrubbing
+JOB=[];
+JOB.dir_base='/scr/vatikan3/APConn/rest12.410/';
+JOB.subjID = subjID17;
+JOB.name_epi='uarest410.nii';
+JOB.name_rp ='rp_arest410.txt';
+JOB.dir_figure='/scr/vatikan3/APConn/rest12.410/fig_denoising';
+JOB.global_threshold=3;
+JOB.motion_threshold=0.5;
+JOB = myspm_art(JOB); % to make sure that you don't need scrubbing
 
 %% 3. Compcor regressor
-EXP.bpf1=[0 inf];
-EXP=myy_compcor(EXP);
+JOB.bpf1=[0 inf];
+JOB=myy_compcor(JOB);
 
 %% 4. compare results from various regressions
 
-EXP.param_cc='wmcsf99_n16d1v1b0.00-Inf';
-EXP.name_cc=['cc_',EXP.param_cc,'_eigenvec.txt'];
-EXP.param_art='3.0std_0.5mm';
-EXP.name_art=['art_regression_outliers_and_movement_uarest410_',EXP.param_art,'.mat'];
-EXP.name_rp='rp_arest410.txt';
-EXP.fname_gmmask='oc1t1w_99.nii';
-EXP.bpf2=[0.01 0.10];
-EXP.covset=[1 2 3 4];
-EXP.cov_idx=4; % i'll go with global-signal!
-EXP = myspm_denoise(EXP);  % 'r' for residual; 'f' for filtering
+JOB.param_cc='wmcsf99_n16d1v1b0.00-Inf';
+JOB.name_cc=['cc_',JOB.param_cc,'_eigenvec.txt'];
+JOB.param_art='3.0std_0.5mm';
+JOB.name_art=['art_regression_outliers_and_movement_uarest410_',JOB.param_art,'.mat'];
+JOB.name_rp='rp_arest410.txt';
+JOB.fname_gmmask='oc1t1w_99.nii';
+JOB.bpf2=[0.01 0.10];
+JOB.covset=[1 2 3 4];
+JOB.cov_idx=4; % i'll go with global-signal!
+JOB = myspm_denoise(JOB);  % 'r' for residual; 'f' for filtering
 
 %% 5. bring parcellation into function
 
-EXP=[];
-EXP.dir_base = '/scr/vatikan3/APConn/rest12.410/';
-EXP.dir_fs   = '/scr/vatikan3/APConn/FSspm12';
-EXP.name_t1w = 'Brain.nii';
-EXP.name_epi = 'meanuarest410.nii';
-EXP.subjID = subjID;
-myspm_aparc(EXP)
+JOB=[];
+JOB.dir_base = '/scr/vatikan3/APConn/rest12.410/';
+JOB.dir_fs   = '/scr/vatikan3/APConn/FSspm12';
+JOB.name_t1w = 'Brain.nii';
+JOB.name_epi = 'meanuarest410.nii';
+JOB.subjID = subjID;
+myspm_aparc(JOB)
 
 %% 6. compute correlation without smoothing
 % smoothing (doesn't seem to be a good idea for ROIs. Averaging already
 % cancels out tiny noise. Even 2-voxel-fhwm increases skewness and drops
 % gof from ks-test.... (but i'll use it for seed-based correlation!@
-EXP=[];
-EXP.dir_base = '/scr/vatikan3/APConn/rest12.410/';
-EXP.subjID = subjID;
-EXP.dir_figure = '/scr/vatikan3/APConn/figures.local/crrmtx_sg';
-EXP.name_res='fruarest410.nii';
-myspm_crrmtx(EXP)
+JOB=[];
+JOB.dir_base = '/scr/vatikan3/APConn/rest12.410/';
+JOB.subjID = subjID;
+JOB.dir_figure = '/scr/vatikan3/APConn/figures.local/crrmtx_sg';
+JOB.name_res='fruarest410.nii';
+myspm_crrmtx(JOB)
 
 
 

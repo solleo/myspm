@@ -1,8 +1,8 @@
-function EXP = myspm_realignunwarp(EXP)
-% myspm_realignunwarp(EXP)
+function JOB = myspm_realignunwarp(JOB)
+% myspm_realignunwarp(JOB)
 % unwarp+realign to MEAN IMAGE
 %
-% EXP requires:
+% JOB requires:
 %  .fname_epi
 % (.fname_vdm)
 %
@@ -15,15 +15,15 @@ function EXP = myspm_realignunwarp(EXP)
 %
 % (cc) sgKIM, 2018.
 
-if ~isfield(EXP,'overwrite'), EXP.overwrite=0; end
-[p1,f1,e1]=myfileparts(EXP.fname_epi);
+if ~isfield(JOB,'overwrite'), JOB.overwrite=0; end
+[p1,f1,e1]=myfileparts(JOB.fname_epi);
 fname_in=[p1,'/',f1,e1];
 ls(fname_in);
 ru=[];
 ru.data.scans=cellstr(spm_select('expand',fname_in)); % get a list of all volumes
-if isfield(EXP,'fname_vdm')
-  ls(EXP.fname_vdm)
-  ru.data.pmscan = {[EXP.fname_vdm,',1']};
+if isfield(JOB,'fname_vdm')
+  ls(JOB.fname_vdm)
+  ru.data.pmscan = {[JOB.fname_vdm,',1']};
 else
   ru.data.pmscan = {''};
 end
@@ -52,7 +52,7 @@ ru.uwroptions.prefix = 'u';
 matlabbatch={};
 matlabbatch{1}.spm.spatial.realignunwarp = ru;
 fname_out = [p1,'/u',f1,e1];
-if ~exist(fname_out,'file') || EXP.overwrite
+if ~exist(fname_out,'file') || JOB.overwrite
   spm_jobman('run', matlabbatch);
   ls(fname_out);
 end

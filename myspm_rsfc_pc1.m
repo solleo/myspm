@@ -1,9 +1,9 @@
-function EXP = myspm_rsfc_pc1 (EXP)
+function JOB = myspm_rsfc_pc1 (JOB)
 % computes connectivity (cor/coh) between PC1's in 3-D space
 %
-% EXP = myspm_rsfc_pc1 (EXP)
+% JOB = myspm_rsfc_pc1 (JOB)
 %
-% EXP requires:
+% JOB requires:
 %  .subjID
 %  .seedname
 %  .pc1_query
@@ -15,49 +15,49 @@ function EXP = myspm_rsfc_pc1 (EXP)
 %
 % (cc) sgKIM, 2015. solleo@gmail.com
 
-if ~isfield(EXP,'overwrite'), overwrite=0; else overwrite=EXP.overwrite; end;
-subjID = fsss_subjID(EXP.subjID);
-disp(['# seed: ',EXP.seedname]);
-[~,~]=mkdir(EXP.dir_base);
-if ~isfield(EXP,'subcortthres'), EXP.subcortthres=50; end
-subcortthres = EXP.subcortthres;
+if ~isfield(JOB,'overwrite'), overwrite=0; else overwrite=JOB.overwrite; end;
+subjID = fsss_subjID(JOB.subjID);
+disp(['# seed: ',JOB.seedname]);
+[~,~]=mkdir(JOB.dir_base);
+if ~isfield(JOB,'subcortthres'), JOB.subcortthres=50; end
+subcortthres = JOB.subcortthres;
 
 for i=1:numel(subjID)
  subjid = subjID{i};
  disp(['# subject: ',subjid]);
  
- if ~isfield(EXP,'fast_query') && isfield(EXP,'epi_query')
+ if ~isfield(JOB,'fast_query') && isfield(JOB,'epi_query')
   % 1. normalize residual images:
-  exp1=[];
-  exp1.fname_moving = fname_subj(EXP.epi_query, subjid);
-  [p1,f1,e1]= fileparts_gz(exp1.fname_moving);
-  exp1.fname_def   =[p1,'/y_t1w.nii'];
-  exp1.vox_mm=2.3;
+  job1=[];
+  job1.fname_moving = fname_subj(JOB.epi_query, subjid);
+  [p1,f1,e1]= fileparts_gz(job1.fname_moving);
+  job1.fname_def   =[p1,'/y_t1w.nii'];
+  job1.vox_mm=2.3;
   Im = [p1,'/w',f1,e1];
   if ~exist(Im,'file') || overwrite
-   myspm_deform(exp1);
+   myspm_deform(job1);
   end
   
   % 2. find mask
-  fname_mask = find_mask(EXP.dir_base, Im, subcortthres);
+  fname_mask = find_mask(JOB.dir_base, Im, subcortthres);
   
   % 3. Do masked smoothing
   [p1,f1,e1] = fileparts_gz(Im);
-  sIm = [p1,'/ms',num2str(EXP.fwhm),'.',f1,e1];
-  if EXP.fwhm
+  sIm = [p1,'/ms',num2str(JOB.fwhm),'.',f1,e1];
+  if JOB.fwhm
    if ~exist(sIm,'file') || overwrite
     disp ('# masked-smoothing..');
-    maskedsmoothing(Im, fname_mask, EXP.fwhm);
+    maskedsmoothing(Im, fname_mask, JOB.fwhm);
    end
   else
    unix(['ln -s ',Im,' ',sIm]);
   end
  else
-  sIm = fname_subj(EXP.fast_query, subjid);
+  sIm = fname_subj(JOB.fast_query, subjid);
  end
  
  % 4. read the pc1
- fname = fname_subj(EXP.pc1_query, subjid);
+ fname = fname_subj(JOB.pc1_query, subjid);
  if strcmp(fname(end-2:end),'mat')
   x = load(fname);
  else
@@ -69,9 +69,9 @@ for i=1:numel(subjID)
  d=size(nii.img);
  
  % 6. compute corr or coh
- if strcmpi(EXP.rsfc, 'corr')
+ if strcmpi(JOB.rsfc, 'corr')
   [~,f1,e1]=fileparts_gz(sIm);
-  fname_out = [EXP.dir_base,'/',EXP.seedname,'-corr.',f1,'.',subjid,e1];
+  fname_out = [JOB.dir_base,'/',JOB.seedname,'-corr.',f1,'.',subjid,e1];
   if ~exist(fname_out,'file') || overwrite
    y=reshape(nii.img,[],d(4))';
    R   = corr(x,y);
@@ -83,11 +83,11 @@ for i=1:numel(subjID)
    save_untouch_nii(nii,fname_out);
   end
   
- elseif strcmpi(EXP.rsfc, 'coh')
+ elseif strcmpi(JOB.rsfc, 'coh')
   [~,f1,e1]=fileparts_gz(sIm);
-  fname_out = [EXP.dir_base,'/',EXP.seedname,'-coh.',f1,'.',subjid,'-allFreq',e1];
-  fname_mHz = [EXP.dir_base,'/NFFT256_all_mHz.txt'];
-  mask = load_uns_nii([EXP.dir_base,'/mask.nii']);
+  fname_out = [JOB.dir_base,'/',JOB.seedname,'-coh.',f1,'.',subjid,'-allFreq',e1];
+  fname_mHz = [JOB.dir_base,'/NFFT256_all_mHz.txt'];
+  mask = load_uns_nii([JOB.dir_base,'/mask.nii']);
   idx = find(~~mask.img(:)); % 11697 voxels...
   NFFT=256*2
   TR = 1.4
@@ -121,18 +121,18 @@ for i=1:numel(subjID)
   % averaging squared magnitude of coherence within a given band
   mHz = dlmread(fname_mHz);
   
-  for b=1:numel(EXP.cohbands_mHz)
-   idx1=find(mHz>EXP.cohbands_mHz{b}(1),1,'first');
-   idx2=find(mHz<EXP.cohbands_mHz{b}(2),1,'last');
-   if isfield(EXP,'band_idx')
-    idx1=EXP.band_idx(b,1);
-    idx2=EXP.band_idx(b,2);
+  for b=1:numel(JOB.cohbands_mHz)
+   idx1=find(mHz>JOB.cohbands_mHz{b}(1),1,'first');
+   idx2=find(mHz<JOB.cohbands_mHz{b}(2),1,'last');
+   if isfield(JOB,'band_idx')
+    idx1=JOB.band_idx(b,1);
+    idx2=JOB.band_idx(b,2);
    end
-   EXP.actual_cohbands_mHz{b}=[round(mHz(idx1)), round(mHz(idx2))];
+   JOB.actual_cohbands_mHz{b}=[round(mHz(idx1)), round(mHz(idx2))];
    %[round(mHz(idx1)), round(mHz(idx2))]
-   EXP.freq_bin_num(b) = idx2-idx1+1;
+   JOB.freq_bin_num(b) = idx2-idx1+1;
    bandstr=[pad(round(mHz(idx1)),3),'-',pad(round(mHz(idx2)),3),'mHz'];
-   fname_fc_band = [EXP.dir_base,'/',EXP.seedname,'-coh.',f1,'.',subjid,'.',bandstr,e1];
+   fname_fc_band = [JOB.dir_base,'/',JOB.seedname,'-coh.',f1,'.',subjid,'.',bandstr,e1];
    
    if ~exist(fname_fc_band,'file')
     numf = numel(mHz);

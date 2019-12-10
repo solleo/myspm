@@ -1,8 +1,8 @@
-function EXP = myspm_mycon (EXP)
-% EXP = myspm_mycon (EXP)
+function JOB = myspm_mycon (JOB)
+% JOB = myspm_mycon (JOB)
 % computes contrast images with a given name con_*
 %
-% EXP requires:
+% JOB requires:
 %  .dir_glm  [1xN string]
 %  .conname  [1xK cell]   names of K contrasts
 %  .convec   [KxP double] contrast vectors for K contrasts, when the number
@@ -11,35 +11,35 @@ function EXP = myspm_mycon (EXP)
 % (cc) 2016, sgKIM
 
 dir0=pwd;
-cd(EXP.dir_glm)
-convec = EXP.convec;
-if ~isfield(EXP,'overwrite'), overwrite=0; else overwrite=EXP.overwrite; end
+cd(JOB.dir_glm)
+convec = JOB.convec;
+if ~isfield(JOB,'overwrite'), overwrite=0; else overwrite=JOB.overwrite; end
 if exist('beta_0001.img','file') && ~exist('beta_0001.nii','file')
  ext1='.img';
 elseif ~exist('beta_0001.img','file') && exist('beta_0001.nii','file')
  ext1='.nii';
 else
- error(['No beta files found in ',EXP.dir_glm])
+ error(['No beta files found in ',JOB.dir_glm])
 end
 % set contrast names
 K=size(convec,1);
-if ~isfield(EXP,'conname')
+if ~isfield(JOB,'conname')
  warning(['No contrast name is given. Will save as con_0001',ext1]);
  for k=1:K
   conname{k} = ['con_',pad(k,4)];
  end
 end
-conname = EXP.conname;
+conname = JOB.conname;
 alldone=1;
 for k=1:K
- alldone= alldone*exist([EXP.dir_glm,'/con_',conname{k},ext1],'file');
+ alldone= alldone*exist([JOB.dir_glm,'/con_',conname{k},ext1],'file');
 end
 if alldone && ~overwrite, return; end
 
 % find variable names from SPM.mat
 varnames=[];
-if isfield(EXP,'varnames')
- varnames=EXP.varnames;
+if isfield(JOB,'varnames')
+ varnames=JOB.varnames;
 else
  if exist('variablenames.mat','file')
   load('variablenames.mat','varnames');
@@ -106,8 +106,8 @@ for k=1:K
  clf; imageorth(con); title(['con_',conname{k},ext1]); drawnow;
  nii.img = con;
  nii.hdr.hist.descrip = ...
-  ['myspm: dir_glm=',EXP.dir_glm,'; contrast=', conname{k}];
- fname_con=[EXP.dir_glm,'/con_',conname{k},ext1];
+  ['myspm: dir_glm=',JOB.dir_glm,'; contrast=', conname{k}];
+ fname_con=[JOB.dir_glm,'/con_',conname{k},ext1];
  disp(['> writing ',fname_con]);
  disp(' ')
  save_untouch_nii(nii, fname_con);

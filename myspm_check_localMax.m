@@ -1,27 +1,27 @@
-function myspm_check_localMax(EXP)
-% myspm_check_localMax(EXP)
+function myspm_check_localMax(JOB)
+% myspm_check_localMax(JOB)
 %
 % checks original coordinates and adjusted local maxima
 %
 % (cc) 2015, sgKIM.   solleo@gmail.com   https://ggooo.wordpress.com
 % 
-% dir0 = EXP.dir_base;
-% EXP.subjID = fsss_subjID(EXP.subjID);
-% NumSubj = numel(EXP.subjID);
+% dir0 = JOB.dir_base;
+% JOB.subjID = fsss_subjID(JOB.subjID);
+% NumSubj = numel(JOB.subjID);
 % 
 % figure;
 % [~,ax] = getLayout(NumSubj);
 % for i = 1 : NumSubj
-%   subjid = EXP.subjID{i};
+%   subjid = JOB.subjID{i};
 % 
-%   fname_strc = [dir0,'/',subjid,'/',EXP.name_strc];
-%   fname_func = [dir0,'/',subjid,'/',EXP.name_func];
+%   fname_strc = [dir0,'/',subjid,'/',JOB.name_strc];
+%   fname_func = [dir0,'/',subjid,'/',JOB.name_func];
 %   
 %   hdr_strc = load_nii_hdr(fname_strc);
 %   hdr_func = load_nii_hdr(fname_func);
 %   
 %   if sum(hdr_strc.dime.dim(2:4) == hdr_func.dime.dim(2:4)) ~= 3
-%     [~,b,c] = fileparts(EXP.name_func);
+%     [~,b,c] = fileparts(JOB.name_func);
 %     fname_strc_in_func = [dir0,'/',subjid,'/',b,'_in_func',c];
 %     if ~exist(fname_strc_in_func,'file')
 %       unix(['mri_convert --like ',fname_func,' ',fname_strc,' ',fname_strc_in_func]);

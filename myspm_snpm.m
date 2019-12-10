@@ -1,4 +1,4 @@
-%function myspm_snpm (EXP)
+%function myspm_snpm (JOB)
 load /scr/vatikan3/APConn/mat/info17_sorted.mat
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.DesignName = '2 Groups: Two Sample T test; 1 scan per subject';
 matlabbatch{1}.spm.tools.snpm.des.TwoSampT.DesignFile = 'snpm_bch_ui_TwoSampT';

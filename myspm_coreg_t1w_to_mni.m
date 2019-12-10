@@ -6,7 +6,7 @@ function fname_mat=myspm_coreg_t1w_to_mni(fname_t1w,fname_mni)
 %
 % (cc) 2018, sgKIM, solleo@gmail.com
 
-exp1=myspm_seg12(struct('fname_t1w',fname_t1w,'mw',zeros(1,6)));
+job1=myspm_seg12(struct('fname_t1w',fname_t1w,'mw',zeros(1,6)));
 [p1,f1,~]=myfileparts(fname_t1w);
 fname_mat=[p1,'/',f1,'_to_MNI.mat'];
 if ~exist('fname_mni','var')
@@ -16,7 +16,7 @@ fname_fixed=fname_mni;
 end
 copyfile(fname_fixed,p1);
 gunzip([p1,'/MNI152_T1_1mm_brain.nii.gz']);
-M = myspm_coreg_est(exp1.fname_out, [p1,'/MNI152_T1_1mm_brain.nii'], fname_mat);
+M = myspm_coreg_est(job1.fname_out, [p1,'/MNI152_T1_1mm_brain.nii'], fname_mat);
 disp('Transform matrix:');
 disp(M.T)
 disp([' is saved in: ',fname_mat]);
@@ -24,10 +24,10 @@ disp([' is saved in: ',fname_mat]);
 end
 
 
-function EXP = myspm_seg12(EXP)
-% EXP = myspm_seg12(EXP)
+function JOB = myspm_seg12(JOB)
+% JOB = myspm_seg12(JOB)
 %
-% EXP requires:
+% JOB requires:
 %  .fname_t1w   [string]
 %  .isMp2rage  [1x1] default = 0 (if 1 use uncorrected input)
 %  .iseastern  [1x1] default = 0 (if 1 use East-Asian template for affine transform)
@@ -47,13 +47,13 @@ if ~strcmp(ver(1:5),'SPM12')
 end
 if nargin == 0, help(mfilename); return; end
 
-if ~isfield(EXP,'ismp2rage'), EXP.ismp2rage=0; end
-if ~isfield(EXP,'iseastern'), EXP.iseastern=0; end
-[p2,f2,e2]=myfileparts(EXP.fname_t1w);
+if ~isfield(JOB,'ismp2rage'), JOB.ismp2rage=0; end
+if ~isfield(JOB,'iseastern'), JOB.iseastern=0; end
+[p2,f2,e2]=myfileparts(JOB.fname_t1w);
 dir_tpm=[spm('dir'),'/tpm'];
 
 preproc=[];
-preproc.channel.vols = {[EXP.fname_t1w,',1']};
+preproc.channel.vols = {[JOB.fname_t1w,',1']};
 preproc.channel.biasreg = 0.001;
 preproc.channel.biasfwhm = 60;
 preproc.channel.write = [0 1];
@@ -81,20 +81,20 @@ preproc.tissue(6).tpm = {[dir_tpm,'/TPM.nii,6']};
 preproc.tissue(6).ngaus = 2;
 preproc.tissue(6).native = [0 0];
 preproc.tissue(6).warped = [0 0];
-if isfield(EXP,'mw')
+if isfield(JOB,'mw')
  for c=1:6
-  preproc.tissue(c).warped(2) = EXP.mw(c);
+  preproc.tissue(c).warped(2) = JOB.mw(c);
  end
 end
-if isfield(EXP,'native')
+if isfield(JOB,'native')
  for c=1:6
-  preproc.tissue(c).native(1) = EXP.native(c);
+  preproc.tissue(c).native(1) = JOB.native(c);
  end
 end
 preproc.warp.mrf = 1;
 preproc.warp.cleanup = 1;
 preproc.warp.reg = [0 0.001 0.5 0.05 0.2];
-if EXP.iseastern
+if JOB.iseastern
  preproc.warp.affreg = 'eastern';
 else
  preproc.warp.affreg = 'mni';
@@ -106,8 +106,8 @@ preproc.warp.write = [0 1];
 matlabbatch={};
 matlabbatch{1}.spm.spatial.preproc = preproc;
 
-ls(EXP.fname_t1w);
-if EXP.ismp2rage
+ls(JOB.fname_t1w);
+if JOB.ismp2rage
  fname_out = [p2,'/b',f2,e2];
 else
  fname_out = [p2,'/bm',f2,e2];
@@ -120,7 +120,7 @@ if ~exist(fname_out,'file')
   V = spm_vol_nifti([p2,'/c',num2str(c),f2,e2]);
   [Y{c},XYZ] = spm_read_vols(V);
  end
- if EXP.ismp2rage
+ if JOB.ismp2rage
   V=spm_vol_nifti([p2,'/',f2,e2]);
  else
   V=spm_vol_nifti([p2,'/m',f2,e2]);
@@ -133,7 +133,7 @@ if ~exist(fname_out,'file')
 end
 disp('> Done:');
 ls(fname_out)
-EXP.fname_out = fname_out;
+JOB.fname_out = fname_out;
 end
 
 function out = myspm_coreg_est(fname_moving, fname_fixed, fname_mat)

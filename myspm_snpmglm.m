@@ -1,32 +1,32 @@
-function EXP=myspm_snpmglm(EXP)
+function JOB=myspm_snpmglm(JOB)
 % check data
-if isfield(EXP,'fnames')
-fnames = EXP.fnames;
-elseif isfield(EXP,'files_query')
-EXP.subjID=fsss_subjID(EXP.subjID);
-fnames=cell(numel(EXP.subjID),1); % this MUST be a column vector <Nx1>
-idx = strfind(EXP.files_query,'${subj}');
-prefix = EXP.files_query(1:idx-1);
-suffix = EXP.files_query(idx+7:end);
-for n=1:numel(EXP.subjID)
-[~,res] = mydir([prefix,EXP.subjID{n},suffix]);
+if isfield(JOB,'fnames')
+fnames = JOB.fnames;
+elseif isfield(JOB,'files_query')
+JOB.subjID=fsss_subjID(JOB.subjID);
+fnames=cell(numel(JOB.subjID),1); % this MUST be a column vector <Nx1>
+idx = strfind(JOB.files_query,'${subj}');
+prefix = JOB.files_query(1:idx-1);
+suffix = JOB.files_query(idx+7:end);
+for n=1:numel(JOB.subjID)
+[~,res] = mydir([prefix,JOB.subjID{n},suffix]);
 if isempty(res)
-error(['File not found: ',prefix,EXP.subjID{n},suffix]);
+error(['File not found: ',prefix,JOB.subjID{n},suffix]);
 end
 fnames{n,1}=[res,',1'];
 end
-elseif isfield(EXP,'filenames')
-for n=1:size(EXP.filenames,1)
-fnames{n,1} = [EXP.filenames{n,1},',1'];
+elseif isfield(JOB,'filenames')
+for n=1:size(JOB.filenames,1)
+fnames{n,1} = [JOB.filenames{n,1},',1'];
 end
 else
-error('You need to specify inputs in EXP.files_query or EXP.filenames');
+error('You need to specify inputs in JOB.files_query or JOB.filenames');
 end
 Nsubj=numel(fnames);
 for n=1:Nsubj
 ls(fnames{n,1}(1:end-2));
 end
-[~,~]=mkdir(EXP.dir_glm);
+[~,~]=mkdir(JOB.dir_glm);
 
 %%
 matlabbatch={};
@@ -35,11 +35,11 @@ matlabbatch{1}.spm.tools.snpm.des.OneSampT.DesignName = ...
 matlabbatch{1}.spm.tools.snpm.des.OneSampT.DesignFile = ...
 'snpm_bch_ui_OneSampT';
 matlabbatch{1}.spm.tools.snpm.des.OneSampT.dir = ...
-{EXP.dir_glm};
+{JOB.dir_glm};
 matlabbatch{1}.spm.tools.snpm.des.OneSampT.P = fnames;
 matlabbatch{1}.spm.tools.snpm.des.OneSampT.cov = struct('c', {}, 'cname', {});
-matlabbatch{1}.spm.tools.snpm.des.OneSampT.nPerm = EXP.nPerm;
-matlabbatch{1}.spm.tools.snpm.des.OneSampT.vFWHM = EXP.vFWHM;
+matlabbatch{1}.spm.tools.snpm.des.OneSampT.nPerm = JOB.nPerm;
+matlabbatch{1}.spm.tools.snpm.des.OneSampT.vFWHM = JOB.vFWHM;
 matlabbatch{1}.spm.tools.snpm.des.OneSampT.bVolm = 1;
 matlabbatch{1}.spm.tools.snpm.des.OneSampT.ST.ST_none = 0;
 matlabbatch{1}.spm.tools.snpm.des.OneSampT.masking.tm.tm_none = 1;
@@ -54,7 +54,7 @@ matlabbatch{2}.spm.tools.snpm.cp.snpmcfg = ...
 spm_jobman('initcfg')
 spm_jobman('run', matlabbatch)
 %% create "spmT_0001.nii" and "sigclus_+1.nii" and so on
-cd (EXP.dir_glm)
+cd (JOB.dir_glm)
 alpha=0.05;
 myunix(['fslmaths lP_FWE+.img -thr ',num2str(-log10(alpha)),' -bin sigclus_+1.nii'])
 myunix(['fslmaths lP_FWE-.img -thr ',num2str(-log10(alpha)),' -bin sigclus_-1.nii'])

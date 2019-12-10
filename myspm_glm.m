@@ -1,10 +1,10 @@
-function EXP=myspm_glm (EXP)
-% EXP=myspm_glm (EXP)
+function JOB = myspm_glm(JOB)
+% JOB = myspm_glm(JOB)
 %
 % This script helps you to set and run GLMs. A result report of
 % the 1st-level GLM will be created using myspm_result.m and myspm_graph.m
 %
-% EXP requires for myspm_glm.m:
+% JOB requires for myspm_glm.m:
 % -output directory
 %  .dir_base     '1xN' directory for a subdirectory that has SPM.mat
 % (.dir_glm)     '1xN' directory to save SPM results
@@ -17,12 +17,11 @@ function EXP=myspm_glm (EXP)
 % or
 %  .filenames    {Nsubjx1} (instead of files_query)
 %
-% (.fwhm_mm)     [1x1|1x3] 3-D smoothing kernel size in mm
 % (.masking)     '1xN' filename for an explicit (inclusive) mask
 %  .design       '1xN' GLM design: either multiple regression ('mreg')
 %                 or one-sample t-test ('t1') or paired t-test ('pt')
 %
-% -model specification for EXP.design='mreg':
+% -model specification for JOB.design='mreg':
 %  .vi.val       [Nsubjx1] a vector of interest
 %  .vi.name      'string' a name of interest
 %  .vn(c).val    [Nsubjx1] a vector of c-th nuissance variable
@@ -30,6 +29,13 @@ function EXP=myspm_glm (EXP)
 % or
 %  .model        <term> SurfStat term structure that describes a GLM
 %  .cidx         [1x1] 1-based index for the contrast of interest
+%
+% -for myspm_cntrst.m:
+% (.cntrstMtx)
+% (.titlestr)
+% (.effectOfInterest)
+% (.FcntrstMtx)
+% (.Ftitlestr)
 %
 % optionally for myspm_result.m:
 % (.thres.desc)    '1xN'  'FWE','none', or 'cluster'(default)
@@ -50,49 +56,49 @@ function EXP=myspm_glm (EXP)
 %
 % Example: one-sample t-test with a covariate
 %
-% EXP=[];
-% EXP.dir_base = '/where/I/want/to/create/dir_glm/';
-% EXP.subjID   = {'subj1','subj2'};
-% EXP.files_query = '/where/I/have/data/${subj}/fmridata/preproced_epi.nii';
-% EXP.design  = 't1';
-% EXP.vn.val  = age;
-% EXP.vn.name = 'age';
-% myspm_glm(EXP)
+% JOB=[];
+% JOB.dir_base = '/where/I/want/to/create/dir_glm/';
+% JOB.subjID   = {'subj1','subj2'};
+% JOB.files_query = '/where/I/have/data/${subj}/fmridata/preproced_epi.nii';
+% JOB.design  = 't1';
+% JOB.vn.val  = age;
+% JOB.vn.name = 'age';
+% myspm_glm(JOB)
 %
 % Results:
 %
 % (cc) 2015. sgKIM.  mailto://solleo@gmail.com  https://ggooo.wordpress.com/
 
 if nargin == 0, help(mfilename); return; end
-if ~isfield(EXP,'overwrite'), EXP.overwrite=0; end
-overwrite=EXP.overwrite;
-if ~isfield(EXP,'design'),design='mreg'; else design = EXP.design; end
+if ~isfield(JOB,'overwrite'), JOB.overwrite=0; end
+overwrite=JOB.overwrite;
+if ~isfield(JOB,'design'),design='mreg'; else design = JOB.design; end
 spm('Defaults','fmri')
 
 matlabbatch={};
 matlabbatch{1}.spm.stats.factorial_design.dir = {};
 % check data
-if isfield(EXP,'fnames')
-  fnames = EXP.fnames;
-elseif isfield(EXP,'files_query')
-  EXP.subjID=fsss_subjID(EXP.subjID);
-  fnames=cell(numel(EXP.subjID),1); % this MUST be a column vector <Nx1>
-  idx = strfind(EXP.files_query,'${subj}');
-  prefix = EXP.files_query(1:idx-1);
-  suffix = EXP.files_query(idx+7:end);
-  for n=1:numel(EXP.subjID)
-    [~,res] = mydir([prefix,EXP.subjID{n},suffix]);
+if isfield(JOB,'fnames')
+  fnames = JOB.fnames;
+elseif isfield(JOB,'files_query')
+  JOB.subjID=fsss_subjID(JOB.subjID);
+  fnames=cell(numel(JOB.subjID),1); % this MUST be a column vector <Nx1>
+  idx = strfind(JOB.files_query,'${subj}');
+  prefix = JOB.files_query(1:idx-1);
+  suffix = JOB.files_query(idx+7:end);
+  for n=1:numel(JOB.subjID)
+    [~,res] = mydir([prefix,JOB.subjID{n},suffix]);
     if isempty(res)
-      error(['File not found: ',prefix,EXP.subjID{n},suffix]);
+      error(['File not found: ',prefix,JOB.subjID{n},suffix]);
     end
     fnames{n,1}=[res,',1'];
   end
-elseif isfield(EXP,'filenames')
-  for n=1:size(EXP.filenames,1)
-    fnames{n,1} = [EXP.filenames{n,1},',1'];
+elseif isfield(JOB,'filenames')
+  for n=1:size(JOB.filenames,1)
+    fnames{n,1} = [JOB.filenames{n,1},',1'];
   end
 else
-  error('You need to specify inputs in EXP.files_query or EXP.filenames');
+  error('You need to specify inputs in JOB.files_query or JOB.filenames');
 end
 Nsubj=numel(fnames);
 for n=1:Nsubj
@@ -101,24 +107,24 @@ end
 
 % check second scans for paired t-test
 if strcmpi(design,'pt')
-  if isfield(EXP,'files_query2')
-    idx = strfind(EXP.files_query2,'${subj}');
-    prefix = EXP.files_query2(1:idx-1);
-    suffix = EXP.files_query2(idx+7:end);
-    for n=1:numel(EXP.subjID)
-      [~,res] = mydir([prefix,EXP.subjID{n},suffix]);
+  if isfield(JOB,'files_query2')
+    idx = strfind(JOB.files_query2,'${subj}');
+    prefix = JOB.files_query2(1:idx-1);
+    suffix = JOB.files_query2(idx+7:end);
+    for n=1:numel(JOB.subjID)
+      [~,res] = mydir([prefix,JOB.subjID{n},suffix]);
       if isempty(res)
-        error(['File not found: ',prefix,EXP.subjID{n},suffix]);
+        error(['File not found: ',prefix,JOB.subjID{n},suffix]);
       end
       fnames{n,2} = [res,',1'];
     end
-  elseif size(EXP.filenames,2)
-    for n=1:size(EXP.filenames,1)
-      fnames{n,2} = [EXP.filenames{n,2},',1'];
+  elseif size(JOB.filenames,2)
+    for n=1:size(JOB.filenames,1)
+      fnames{n,2} = [JOB.filenames{n,2},',1'];
       
     end
   else
-    error('You need to specify inputs in EXP.files_queryend or EXP.filenames');
+    error('You need to specify inputs in JOB.files_queryend or JOB.filenames');
   end
   for n=1:Nsubj
     ls(fnames{n,2}(1:end-2));
@@ -128,15 +134,15 @@ end
 %% design specification
 switch design
   case 'mreg' % multiple regression
-    EXP = myspm_strcNterm(EXP);
+    JOB = myspm_strcNterm(JOB);
     matlabbatch{1}.spm.stats.factorial_design.des.mreg.scans = fnames; % THIS HAS TO BE <Nx1>, not <1xN>!!!
     % variable of interest
-    matlabbatch{1}.spm.stats.factorial_design.des.mreg.mcov.c = double(EXP.vi.val);
-    matlabbatch{1}.spm.stats.factorial_design.des.mreg.mcov.cname = EXP.vi.name;
+    matlabbatch{1}.spm.stats.factorial_design.des.mreg.mcov.c = double(JOB.vi.val);
+    matlabbatch{1}.spm.stats.factorial_design.des.mreg.mcov.cname = JOB.vi.name;
     matlabbatch{1}.spm.stats.factorial_design.des.mreg.mcov.iCC = 1; % centering
     % including intercept
     matlabbatch{1}.spm.stats.factorial_design.des.mreg.incint = 1;
-    if isfield(EXP,'nointercept')
+    if isfield(JOB,'nointercept')
       matlabbatch{1}.spm.stats.factorial_design.des.mreg.incint = 0;
     end
     matlabbatch{1}.spm.stats.factorial_design.multi_cov ...
@@ -144,7 +150,7 @@ switch design
     
   case 't1' % one-sample t-test
     matlabbatch{1}.spm.stats.factorial_design.des.t1.scans = fnames;
-    EXP.vi.name='1';
+    JOB.vi.name='1';
     
   case 'pt' % paired t-test
     for n=1:size(fnames,1)
@@ -153,12 +159,12 @@ switch design
     end
     matlabbatch{1}.spm.stats.factorial_design.des.pt.gmsca = 0;
     matlabbatch{1}.spm.stats.factorial_design.des.pt.ancova = 0;
-    EXP.vi.name='1';
+    JOB.vi.name='1';
 end
-if isfield(EXP,'vn') % of variable of nuissance
-  for c=1:numel(EXP.vn)
-    matlabbatch{1}.spm.stats.factorial_design.cov(c).c = double(EXP.vn(c).val);
-    matlabbatch{1}.spm.stats.factorial_design.cov(c).cname = EXP.vn(c).name;
+if isfield(JOB,'vn') % of variable of nuissance
+  for c=1:numel(JOB.vn)
+    matlabbatch{1}.spm.stats.factorial_design.cov(c).c = double(JOB.vn(c).val);
+    matlabbatch{1}.spm.stats.factorial_design.cov(c).cname = JOB.vn(c).name;
     matlabbatch{1}.spm.stats.factorial_design.cov(c).iCFI = 1; % interaction none
     matlabbatch{1}.spm.stats.factorial_design.cov(c).iCC = 1;  % centing overall mean
   end
@@ -168,53 +174,53 @@ else
 end
 matlabbatch{1}.spm.stats.factorial_design.masking.tm.tm_none = 1;
 matlabbatch{1}.spm.stats.factorial_design.masking.im = 1;
-% if ~isfield(EXP,'masking')
+% if ~isfield(JOB,'masking')
 matlabbatch{1}.spm.stats.factorial_design.masking.em = {''};
 % else
-%   matlabbatch{1}.spm.stats.factorial_design.masking.em = {[EXP.masking,',1']};
+%   matlabbatch{1}.spm.stats.factorial_design.masking.em = {[JOB.masking,',1']};
 % end
 matlabbatch{1}.spm.stats.factorial_design.globalc.g_omit = 1;
 matlabbatch{1}.spm.stats.factorial_design.globalm.gmsca.gmsca_no = 1;
 matlabbatch{1}.spm.stats.factorial_design.globalm.glonorm = 1;
-if ~isfield(EXP,'model_desc')
-  EXP.model_desc=design;
+if ~isfield(JOB,'model_desc')
+  JOB.model_desc = design;
 end
-if ~isfield(EXP,'dir_glm')%&&isfield(EXP,'dir_base');
-  if ~isfield(EXP,'dir_prefix'), EXP.dir_prefix=''; end
-  EXP.dir_glm=fullfile(EXP.dir_base,[EXP.dir_prefix,EXP.model_desc]);
+if ~isfield(JOB,'dir_glm')%&&isfield(JOB,'dir_base');
+  if ~isfield(JOB,'dir_prefix'), JOB.dir_prefix = ''; end
+  JOB.dir_glm = fullfile(JOB.dir_base,[JOB.dir_prefix,JOB.model_desc]);
 end
-[~,~]=mkdir(EXP.dir_glm);
-matlabbatch{1}.spm.stats.factorial_design.dir = {EXP.dir_glm};
-save([EXP.dir_glm,'/glm_design.mat'], 'matlabbatch');
-need2est=1;
+[~,~] = mkdir(JOB.dir_glm);
+matlabbatch{1}.spm.stats.factorial_design.dir = {JOB.dir_glm};
+save([JOB.dir_glm,'/glm_design.mat'], 'matlabbatch');
+need2est = 1;
 if overwrite
-  unix(['rm -f ',EXP.dir_glm,'/SPM.mat']);
+  unix(['rm -f ',JOB.dir_glm,'/SPM.mat']);
 else
-  if exist([EXP.dir_glm,'/SPM.mat'],'file')
-    need2est=0;
+  if exist([JOB.dir_glm,'/SPM.mat'],'file')
+    need2est = 0;
   end
 end
 if need2est
   spm_jobman('initcfg')
   spm_jobman('run', matlabbatch)
 end
-cd(EXP.dir_glm)
+cd(JOB.dir_glm)
 spm_print;
 
 %% Coefficeint estimation
-matlabbatch={};
-matlabbatch{1}.spm.stats.fmri_est.spmmat = {[EXP.dir_glm,'/SPM.mat']};
+matlabbatch = {};
+matlabbatch{1}.spm.stats.fmri_est.spmmat = {[JOB.dir_glm,'/SPM.mat']};
 matlabbatch{1}.spm.stats.fmri_est.method.Classical = 1;
-save([EXP.dir_glm,'/glm_estimation.mat'], 'matlabbatch');
-if overwrite || ~exist([EXP.dir_glm,'/beta_0001.nii'],'file')
+save([JOB.dir_glm,'/glm_estimation.mat'], 'matlabbatch');
+if overwrite || ~exist([JOB.dir_glm,'/beta_0001.nii'],'file')
   spm_jobman('run', matlabbatch)
 end
 
 
 %% when required, create a NIFTI file before deleting ResI.*
-pwd0=pwd;
-cd (EXP.dir_glm)
-if isfield(EXP,'keepResidual') && EXP.keepResidual
+pwd0 = pwd;
+cd (JOB.dir_glm)
+if isfield(JOB,'keepResidual') && JOB.keepResidual
   % create NIFTI
   setenv('FSLOUTPUTTYPE','NIFTI_GZ')
   myunix('fslmerge -t ResI ResI_????.nii');
@@ -226,94 +232,39 @@ myunix('rm -f ResI_????.nii');
 cd (pwd0);
 
 
-%% Contrast computation
-% matlabbatch={};
-% matlabbatch{1}.spm.stats.con.spmmat = {[EXP.dir_glm,'/SPM.mat']};
-% matlabbatch{1}.spm.stats.con.consess{1}.tcon.name = ['+',EXP.vi.name];
-% matlabbatch{1}.spm.stats.con.consess{1}.tcon.sessrep = 'none';
-% matlabbatch{1}.spm.stats.con.consess{2}.tcon.name = ['-',EXP.vi.name];
-% matlabbatch{1}.spm.stats.con.consess{2}.tcon.sessrep = 'none';
-% matlabbatch{1}.spm.stats.con.delete = 1;
-% switch design
-%   case 'mreg'
-%     matlabbatch{1}.spm.stats.con.consess{1}.tcon.convec = [X_int X_cov +1];
-%     matlabbatch{1}.spm.stats.con.consess{2}.tcon.convec = [X_int X_cov -1];
-%   case 't1'
-%     matlabbatch{1}.spm.stats.con.consess{1}.tcon.convec = [+1 X_cov];
-%     matlabbatch{1}.spm.stats.con.consess{2}.tcon.convec = [-1 X_cov];
-%   case 'pt'
-%     matlabbatch{1}.spm.stats.con.consess{1}.tcon.convec = [1 -1 X_cov zeros(1,size(fnames,1))];
-%     matlabbatch{1}.spm.stats.con.consess{2}.tcon.convec = [-1 1 X_cov zeros(1,size(fnames,1))];
-% end
-% if isfield(EXP,'flipContrast'), EXP.flipContrast
-%   matlabbatch{1}.spm.stats.con.consess{1}.tcon.convec = - matlabbatch{1}.spm.stats.con.consess{1}.tcon.convec;
-%   matlabbatch{1}.spm.stats.con.consess{2}.tcon.convec = - matlabbatch{1}.spm.stats.con.consess{2}.tcon.convec;
-%   matlabbatch{1}.spm.stats.con.consess{1}.tcon.name = ['-',EXP.vi.name];
-%   matlabbatch{1}.spm.stats.con.consess{2}.tcon.name = ['+',EXP.vi.name];
-% end
-% k=2;
-% if isfield(EXP,'FcntrstMtx') && isfield(EXP,'Ftitlestr')
-%   disp('Found F-contrasts');
-%   for j=1:numel(EXP.FcntrstMtx)
-%     k=k+1;
-%     matlabbatch{1}.spm.stats.con.consess{k}.fcon.name = EXP.Ftitlestr{j};
-%     matlabbatch{1}.spm.stats.con.consess{k}.fcon.convec = EXP.FcntrstMtx{j};
-%   end
-% end
-% % EXP.NumCntrst=k;
-% 
-% save([EXP.dir_glm,'/glm_contrast.mat'], 'matlabbatch');
-% if overwrite || (~exist(['spmT_0001.nii'],'file') && ~exist(['spmF_0001.nii'],'file'))
-%   spm_jobman('run', matlabbatch)
-% end
-% matlabbatch{1}.spm.stats.con.consess{1}.tcon.name = ['+',EXP.vi.name];
-% matlabbatch{1}.spm.stats.con.consess{1}.tcon.sessrep = 'none';
-% matlabbatch{1}.spm.stats.con.consess{2}.tcon.name = ['-',EXP.vi.name];
-if ~isfield(EXP,'titlestr')
-  EXP.titlestr={['+',EXP.vi.name],['-',EXP.vi.name]};
+%% 4. Design review & Orthogonality check
+% set figure filename
+if ~isfield(JOB,'fname_spm_fig')
+  today = datestr(now,'yyyymmmdd');
+  JOB.fname_spm_fig = fullfile(JOB.dir_glm,[JOB.model_desc,'_spm_',today,'.ps']);
+  JOB.fname_spm_fig = strrep(JOB.fname_spm_fig,'>','-gt-');
+  JOB.fname_spm_fig = strrep(JOB.fname_spm_fig,'<','-lt-');
 end
-if ~isfield(EXP,'cntrstMtx')
-  if isfield(EXP,'vn')
-    X_cov=zeros(1,numel(EXP.vn));
-  else
-    X_cov=[];
-  end
-  if isfield(EXP,'vi')
-    if isfield(EXP.vi,'val')
-      if isempty( EXP.vi.val )
-        X_int=[];
-      elseif EXP.vi.val == 1
-        X_int=[];
-      else
-        X_int=0;
-      end
-    end
-  else
-    X_int=0;
-  end
-  switch design
-    case 'mreg'
-      EXP.cntrstMtx = [X_int X_cov +1; X_int X_cov -1];
-    case 't1'
-      EXP.cntrstMtx = [+1 X_cov; -1 X_cov];
-    case 'pt'
-      EXP.cntrstMtx = [
-        1 -1 X_cov zeros(1,size(fnames,1));
-        -1 1 X_cov zeros(1,size(fnames,1))];
-  end
+% delete previous figure files today (rewriting)
+if exist(JOB.fname_spm_fig,'file')
+  delete(JOB.fname_spm_fig);
 end
+
+% review the design matrix and save it:
+toDisplay = {'matrix','orth','covariance'};
+spm_figure('clear')
+for j=1:numel(toDisplay)
+  matlabbatch = {};
+  matlabbatch{1}.spm.stats.review.spmmat = {[JOB.dir_glm,'/SPM.mat']};
+  matlabbatch{1}.spm.stats.review.display.(toDisplay{j})= 1;
+  matlabbatch{1}.spm.stats.review.print = false;
+  spm_jobman('run', matlabbatch);
+  spm_print(JOB.fname_spm_fig);
+end
+
+
 %% Now create result reports
-% if ~isfield(EXP,'mygraph')
-%   EXP.mygraph.y_name='y';
-%   EXP.mygraph.x_name='x';
-% end
-if ~isfield(EXP,'thres')
- EXP.thres.desc  = 'cluster';
- EXP.thres.alpha = 0.05;
+if ~isfield(JOB,'thres')
+ JOB.thres.desc  = 'cluster';
+ JOB.thres.alpha = 0.05;
 end
-if (isfield(EXP,'NOCNTRST') && EXP.NOCNTRST) || (isfield(EXP,'NOREPORT') && EXP.NOREPORT)
-else
- myspm_cntrst (EXP);
+if ~(isfield(JOB,'NOCNTRST') && JOB.NOCNTRST) 
+ myspm_cntrst (JOB);
 end
 
 end

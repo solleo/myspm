@@ -1,8 +1,8 @@
-function myspm_invdeform(EXP)
+function myspm_invdeform(JOB)
 % deforms 'signicifant' clusters into (not-resampled-but-coregistered-to-T1w)
 % -EPI space and resamples using nearest-neighbour interpolation.
 %
-% EXP requires:
+% JOB requires:
 %  .fname_y (deformation field: native-t1w to MNI152-t1w)
 %  .fname_cluster (or anything in MNI152-space)
 %  .fname_coreged_epi (reference image, usually unwarped mean image; not resampled but its header is modified)
@@ -12,21 +12,23 @@ function myspm_invdeform(EXP)
 %
 % (cc) 2015, sgKIM. solleo@gmail.com
 
+if ~nargin, help(mfilename); return; end
+
 % check if coreged_epi is really coregistered to t1w (how?)
-if isfield(EXP,'fname_native_epi')
-  hdr1 = MRIread(EXP.fname_native_epi,1);
-  hdr2 = MRIread(EXP.fname_coreged_epi,1);
+if isfield(JOB,'fname_native_epi')
+  hdr1 = MRIread(JOB.fname_native_epi,1);
+  hdr2 = MRIread(JOB.fname_coreged_epi,1);
   if rms(hdr1.vox2ras1(:)-hdr2.vox2ras1(:)) == 0
-    error(['[!!] ',EXP.fname_coreged_epi,' seems to be uncoregistered!']);
+    error(['[!!] ',JOB.fname_coreged_epi,' seems to be uncoregistered!']);
   end
 end
 
 % apply inverse deformation: MNI to native-EPI
 matlabbatch={};
-matlabbatch{1}.spm.util.defs.comp{1}.inv.comp{1}.def = {EXP.fname_y};
-matlabbatch{1}.spm.util.defs.comp{1}.inv.space  = {EXP.fname_coreged_epi};
-matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {EXP.fname_cluster};
-[path1,fname1,ext1] = fileparts(EXP.fname_cluster);
+matlabbatch{1}.spm.util.defs.comp{1}.inv.comp{1}.def = {JOB.fname_y};
+matlabbatch{1}.spm.util.defs.comp{1}.inv.space  = {JOB.fname_coreged_epi};
+matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {JOB.fname_cluster};
+[path1,fname1,ext1] = fileparts(JOB.fname_cluster);
 if isempty(path1), path1=pwd; end
 matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {'/tmp/'};
 matlabbatch{1}.spm.util.defs.out{1}.pull.interp = 0; %% 0-th order B-spline (i.e. NN)
@@ -35,12 +37,12 @@ matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm = [0 0 0];
 save([path1,'/invdeform.mat'], 'matlabbatch');
 spm_jobman('initcfg');
 spm_jobman('run', matlabbatch);
-if ~isfield(EXP,'previx'), EXP.prefix='i'; end
-if ~isfield(EXP,'fname_out')
-  EXP.fname_out=[path1,'/',EXP.prefix, fname1, ext1];
+if ~isfield(JOB,'previx'), JOB.prefix='i'; end
+if ~isfield(JOB,'fname_out')
+  JOB.fname_out=[path1,'/',JOB.prefix, fname1, ext1];
 end
-copyfile(['/tmp/w', fname1, ext1], EXP.fname_out);
-disp(['> File saved: ',EXP.fname_out]);
+copyfile(['/tmp/w', fname1, ext1], JOB.fname_out);
+disp(['> File saved: ',JOB.fname_out]);
 end
 
 function mri = MRIread(fstring,headeronly)

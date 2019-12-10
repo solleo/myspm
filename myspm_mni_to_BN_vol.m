@@ -11,11 +11,11 @@ if ~exist('/tmp/BN1.nii','file')
  unix('gunzip /tmp/BN1.nii.gz');
 end
 if ~exist('/tmp/rBN1.nii','file')
- exp1=[];
- exp1.fname_ref=fname_epi;
- exp1.fname_src='/tmp/BN1.nii';
- exp1.interp=0;
- myspm_reslice(exp1);
+ job1=[];
+ job1.fname_ref=fname_epi;
+ job1.fname_src='/tmp/BN1.nii';
+ job1.interp=0;
+ myspm_reslice(job1);
 end
 %T=readtable('~/Dropbox/BN_Atlas/BN_Atlas_246_COT.xlsx');
 

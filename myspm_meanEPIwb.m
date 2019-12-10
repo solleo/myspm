@@ -1,4 +1,4 @@
-function EXP = myspm_meanEPIwb (EXP)
+function JOB = myspm_meanEPIwb (JOB)
 if strfind(num2str(addsess), subjid)
 fname_t1w=myls([dir_local,subjid,'/7T/*.SEPT/S*mp2rage*whole*UNI*_Te2.38*.nii']);
 else
@@ -25,15 +25,15 @@ correctedWholebrainEPI=[dir_local,subjid,'/7T/epi-wb.nii'];
 utrgEPI=[p1,'/u',f1,e1];
 if strfind(num2str(addsess), subjid)
 fname_t1w0p7 = [dir_local,subjid,'/7T/t1w_brain.nii'];
-exp1=struct('prefix','c', 'interp',1, 'name_fixed', fname_t1w0p7, ...
+job1=struct('prefix','c', 'interp',1, 'name_fixed', fname_t1w0p7, ...
 'name_moving', fname_t1w, 'name_others',utrgEPI);
-myspm_coreg(exp1);
+myspm_coreg(job1);
 cutrgEPI=[p1,'/cu',f1,e1];
 copyfile(cutrgEPI, correctedWholebrainEPI);
 else
-exp1=struct('prefix','c', 'interp',1, 'name_fixed', fname_t1w, ...
+job1=struct('prefix','c', 'interp',1, 'name_fixed', fname_t1w, ...
 'name_moving', utrgEPI);
-myspm_coreg(exp1);
+myspm_coreg(job1);
 cutrgEPI=[p1,'/cu',f1,e1];
 copyfile(cutrgEPI, correctedWholebrainEPI);
 end

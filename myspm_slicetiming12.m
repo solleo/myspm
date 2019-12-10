@@ -1,7 +1,7 @@
-function EXP = myspm_slicetiming12 (EXP)
-% EXP = myspm_slicetiming12(EXP)
+function JOB = myspm_slicetiming12 (JOB)
+% JOB = myspm_slicetiming12(JOB)
 %
-% EXP requires:
+% JOB requires:
 %  .fname_epi
 % (.fname_dcm)
 %
@@ -13,12 +13,12 @@ function EXP = myspm_slicetiming12 (EXP)
 spm('Defaults','fmri');
 spm_jobman('initcfg');
 % find slice timing in msec and repetition time in sec
-hdr = spm_dicom_headers(EXP.fname_dcm);
-EXP.slice_order = hdr{1}.Private_0019_1029;
-EXP.TR_sec = hdr{1}.RepetitionTime/1000;
-EXP.ref_slice_msec = round(EXP.TR_sec*1000/2); % in msec (when slice_order in given in msec)
-spm_slice_timing12(EXP.fname_epi, EXP.slice_order, EXP.ref_slice_msec, ...
- [0 EXP.TR_sec], 'a');
+hdr = spm_dicom_headers(JOB.fname_dcm);
+JOB.slice_order = hdr{1}.Private_0019_1029;
+JOB.TR_sec = hdr{1}.RepetitionTime/1000;
+JOB.ref_slice_msec = round(JOB.TR_sec*1000/2); % in msec (when slice_order in given in msec)
+spm_slice_timing12(JOB.fname_epi, JOB.slice_order, JOB.ref_slice_msec, ...
+ [0 JOB.TR_sec], 'a');
 
 end
 

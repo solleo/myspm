@@ -1,7 +1,7 @@
-function myspm_apply_deform(EXP)
-% EXP = myspm_apply_deform(EXP)
+function myspm_apply_deform(JOB)
+% JOB = myspm_apply_deform(JOB)
 %
-% EXP requires:
+% JOB requires:
 % .fname_deform
 % .isInv
 % .fname_moving
@@ -10,17 +10,17 @@ function myspm_apply_deform(EXP)
 %
 % (cc) 2017, sgKIM.
 
-if ~isfield(EXP,'intorder'), intorder=1; else, intorder=EXP.intorder; end
-if ~isfield(EXP,'isInv'), isInv=0; else, isInv=EXP.isInv; end
+if ~isfield(JOB,'intorder'), intorder=1; else, intorder=JOB.intorder; end
+if ~isfield(JOB,'isInv'), isInv=0; else, isInv=JOB.isInv; end
 
 matlabbatch={};
 if isInv
- matlabbatch{1}.spm.util.defs.comp{1}.inv.comp{1}.def = {EXP.fname_deform};
- matlabbatch{1}.spm.util.defs.comp{1}.inv.space = {EXP.fname_fixed};
+ matlabbatch{1}.spm.util.defs.comp{1}.inv.comp{1}.def = {JOB.fname_deform};
+ matlabbatch{1}.spm.util.defs.comp{1}.inv.space = {JOB.fname_fixed};
 else
- matlabbatch{1}.spm.util.defs.comp{1}.def = {EXP.fname_deform};
+ matlabbatch{1}.spm.util.defs.comp{1}.def = {JOB.fname_deform};
 end
-matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {EXP.fname_moving};
+matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {JOB.fname_moving};
 matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.savepwd = 1;
 matlabbatch{1}.spm.util.defs.out{1}.pull.interp = intorder;
 matlabbatch{1}.spm.util.defs.out{1}.pull.mask   = 0;

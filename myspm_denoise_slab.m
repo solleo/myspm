@@ -1,24 +1,24 @@
-function EXP = myspm_denoise_slab(EXP)
-% EXP = myspm_denoise_slab(EXP)
+function JOB = myspm_denoise_slab(JOB)
+% JOB = myspm_denoise_slab(JOB)
 %
-% EXP requires:
+% JOB requires:
 %  .name_epi;
 %  .cov_idx    1x1 for rp+cc+gs+scrub
 %  .num
 % (.nofigure)
 %
 % [example]
-% exp1=[];
-% exp1.num_pcs  = 48; (by default; see below for other # of PCs)
-% exp1.subjid   = 1002;
-% exp1.dir_fs   = dir1;
-% exp1.fsd      = 'boldloc';
-% exp1.name_epi = 'auloc?.nii';
-% exp1.TR_sec   = 1.5+1.4;
-% exp1.num_runs = 6;
-% exp1.dir_base = '/scr/vatikan3/Tonotopy/func/';
-% exp1.dir_figure = [dir1,'/FIGs/compcor'];
-% myspm_compcor_slab(exp1)
+% job1=[];
+% job1.num_pcs  = 48; (by default; see below for other # of PCs)
+% job1.subjid   = 1002;
+% job1.dir_fs   = dir1;
+% job1.fsd      = 'boldloc';
+% job1.name_epi = 'auloc?.nii';
+% job1.TR_sec   = 1.5+1.4;
+% job1.num_runs = 6;
+% job1.dir_base = '/scr/vatikan3/Tonotopy/func/';
+% job1.dir_figure = [dir1,'/FIGs/compcor'];
+% myspm_compcor_slab(job1)
 %
 % NOTE: myy_compcor_slab computes 48 PCs by default. For any smaller number of
 % PCs, it just takes the first n column vectors.
@@ -27,82 +27,82 @@ function EXP = myspm_denoise_slab(EXP)
 
 %% 0. set parameters
 path0=pwd;
-if ~isfield(EXP,'overwrite'),  overwrite=0; else overwrite=EXP.overwrite; end
-subjid = EXP.subjid;
-TR_sec = EXP.TR_sec;
-if ~isfield(EXP,'num_pcs'), EXP.num_pcs=48;    end;
-if ~isfield(EXP,'detrend'), EXP.detrend=1;    end;
-if ~isfield(EXP,'varnorm'), EXP.varnorm=1;    end;
-if ~isfield(EXP,'bpf1'),    EXP.bpf1=[1/128 Inf]; end;
-FilterBand = EXP.bpf1;
-if ~isfield(EXP,'param_cc')
-EXP.param_cc = sprintf('_n%df%0.2f-%0.2f', EXP.num_pcs, EXP.bpf1);
+if ~isfield(JOB,'overwrite'),  overwrite=0; else overwrite=JOB.overwrite; end
+subjid = JOB.subjid;
+TR_sec = JOB.TR_sec;
+if ~isfield(JOB,'num_pcs'), JOB.num_pcs=48;    end;
+if ~isfield(JOB,'detrend'), JOB.detrend=1;    end;
+if ~isfield(JOB,'varnorm'), JOB.varnorm=1;    end;
+if ~isfield(JOB,'bpf1'),    JOB.bpf1=[1/128 Inf]; end;
+FilterBand = JOB.bpf1;
+if ~isfield(JOB,'param_cc')
+JOB.param_cc = sprintf('_n%df%0.2f-%0.2f', JOB.num_pcs, JOB.bpf1);
 end
 sumstat=[];
-if isfield(EXP,'gm_thrs_std') ...
-&& isfield(EXP,'mov_thrs_mm') && isfield(EXP,'mov_thrs_deg')
-if ~isfield(EXP,'gm_thrs_std'),  EXP.gm_thrs_std  = 5;    end
-if ~isfield(EXP,'mov_thrs_mm'),  EXP.mov_thrs_mm  = 0.5;    end
-if ~isfield(EXP,'mov_thrs_deg'), EXP.mov_thrs_deg = 0.005; end
+if isfield(JOB,'gm_thrs_std') ...
+&& isfield(JOB,'mov_thrs_mm') && isfield(JOB,'mov_thrs_deg')
+if ~isfield(JOB,'gm_thrs_std'),  JOB.gm_thrs_std  = 5;    end
+if ~isfield(JOB,'mov_thrs_mm'),  JOB.mov_thrs_mm  = 0.5;    end
+if ~isfield(JOB,'mov_thrs_deg'), JOB.mov_thrs_deg = 0.005; end
 mac_output_suffix=sprintf('_%0.1fstd_%0.2fmm_%0.2fdeg', ...
-EXP.gm_thrs_std, EXP.mov_thrs_mm, EXP.mov_thrs_deg);
+JOB.gm_thrs_std, JOB.mov_thrs_mm, JOB.mov_thrs_deg);
 else
 mac_output_suffix='_5.0std_0.50mm_0.01deg';
 end
-if ~isfield(EXP,'t1w_suffix')
-EXP.t1w_suffix='t1w';
+if ~isfield(JOB,'t1w_suffix')
+JOB.t1w_suffix='t1w';
 end
-idx=strfind(EXP.name_epi,'?');
-switch EXP.name_epi(1:2)
+idx=strfind(JOB.name_epi,'?');
+switch JOB.name_epi(1:2)
 case {'au', 'ua'}
-fnameprefix_func = EXP.name_epi(3:idx-1);
+fnameprefix_func = JOB.name_epi(3:idx-1);
 case {'a', 'u'}
-fnameprefix_func = EXP.name_epi(2:idx-1);
+fnameprefix_func = JOB.name_epi(2:idx-1);
 otherwise
-fnameprefix_func = EXP.name_epi(1:idx-1);
+fnameprefix_func = JOB.name_epi(1:idx-1);
 end
 
 % directory for figures
-if ~isfield(EXP,'dir_figure')
-dir_figure = [EXP.dir_base,'/',subjid,'/fig_denoise'];
+if ~isfield(JOB,'dir_figure')
+dir_figure = [JOB.dir_base,'/',subjid,'/fig_denoise'];
 else
-dir_figure = EXP.dir_figure;
+dir_figure = JOB.dir_figure;
 end
-EXP.dir_figure = dir_figure;
+JOB.dir_figure = dir_figure;
 [~,~]=mkdir(dir_figure);
 
 % gray matter masks
-for r=1:EXP.num_runs
-EXP.fname_gmmask{r}=myls([EXP.dir_base,'/',subjid,'/fsc1UNI_run',num2str(r),'.nii']);
+for r=1:JOB.num_runs
+JOB.fname_gmmask{r}=myls([JOB.dir_base,'/',subjid,'/fsc1UNI_run',num2str(r),'.nii']);
 end
 
 %% I. Compcor regressors
-fname_eigvec = ['cc_',fnameprefix_func,num2str(EXP.num_runs), ...
-'_eigvec',EXP.param_cc,'.txt'];
-if ~isfield(EXP,'overwrite_cc'), EXP.overwrite_cc=[0 0 0]; end
-if ~exist(fname_eigvec,'file') || sum(EXP.overwrite_cc)
-exp1 = EXP;
-exp1.subjid =subjid;
-exp1.overwrite = EXP.overwrite_cc;
-myy_compcor_slab(exp1); % creating cc_*_gs.txt, cc_*_eigval*.txt cc_*_eigvec*.txt
+fname_eigvec = ['cc_',fnameprefix_func,num2str(JOB.num_runs), ...
+'_eigvec',JOB.param_cc,'.txt'];
+if ~isfield(JOB,'overwrite_cc'), JOB.overwrite_cc=[0 0 0]; end
+if ~exist(fname_eigvec,'file') || sum(JOB.overwrite_cc)
+job1 = JOB;
+job1.subjid =subjid;
+job1.overwrite = JOB.overwrite_cc;
+myy_compcor_slab(job1); % creating cc_*_gs.txt, cc_*_eigval*.txt cc_*_eigvec*.txt
 end
 
 %% II.  MAC: find outliers
-for r=1:EXP.num_runs
-idx=strfind(EXP.name_epi,'?');
-name_epi = [EXP.name_epi(1:idx-1),num2str(r),EXP.name_epi(idx+1:end)];
-path1=[fullfile(EXP.dir_base,subjid),'/'];
-EXP.fname_epi = fullfile(path1, name_epi);
-%path2=[fullfile(EXP.dir_base,subjid),'/fig_denoise/'];
+for r=1:JOB.num_runs
+idx=strfind(JOB.name_epi,'?');
+name_epi = [JOB.name_epi(1:idx-1),num2str(r),JOB.name_epi(idx+1:end)];
+path1=[fullfile(JOB.dir_base,subjid),'/'];
+JOB.fname_epi = fullfile(path1, name_epi);
+%path2=[fullfile(JOB.dir_base,subjid),'/fig_denoise/'];
 cd(path1);
 [~,~]=mkdir(dir_figure);
-nii = load_uns_nii(EXP.fname_epi);
+nii = load_uns_nii(JOB.fname_epi);
 d = nii.hdr.dime.dim(2:5);
 y = double(img2y(nii.img));
-gm = load_uns_nii(EXP.fname_gmmask{r});
+gm = load_uns_nii(JOB.fname_gmmask{r});
 y = y(:,gm.img(:)>0.99);
 
-if EXP.num_pcs >0
+if JOB.num_pcs >0
 cc = load([path1,fname_eigvec]);
 else
 cc = [];
@@ -114,9 +114,9 @@ fname_out = [path1,'/mac_out_',fnameprefix_func,num2str(r), ...
 mac_output_suffix,'.txt']; % outling frames (scrubbing regressors)
 
 if ~exist(fname_mov,'file') || ~exist(fname_out,'file') || overwrite
-exp1=EXP;
-exp1.fname_rp = [path1,'rp_',fnameprefix_func,num2str(r),'.txt'];
-myspm_mac(exp1);
+job1=JOB;
+job1.fname_rp = [path1,'rp_',fnameprefix_func,num2str(r),'.txt'];
+myspm_mac(job1);
 end
 
 rp = load(fname_mov);
@@ -127,11 +127,11 @@ gs = load(fname_gs);
 else
 gs = ones(size(rmparam,1),1);
 end
-output_suffix = [EXP.param_cc,'_',mac_output_suffix(2:end), ...
+output_suffix = [JOB.param_cc,'_',mac_output_suffix(2:end), ...
 '_b',num2str(FilterBand(1),2),'-',num2str(FilterBand(2),2)];
 
 %% III. FIGURES
-if ~isfield(EXP,'nofigures') && (EXP.num_pcs<24)
+if ~isfield(JOB,'nofigures') && (JOB.num_pcs<24)
 %% plot#1: timeseries
 hf=figure('position',[1952        -172         962        1090]);
 ax1=subplot(6,7,[1:6]); hold on;
@@ -159,30 +159,30 @@ V{1}(isnan(V{1}))=eps;
 
 % setting user-defined regressors to compare
 M=[];
-if ~isfield(EXP,'covset')
-EXP.covset=[1 2 3 4];
-if isfield(EXP,'nogs')
-EXP.covset=[1 2 4 3];
+if ~isfield(JOB,'covset')
+JOB.covset=[1 2 3 4];
+if isfield(JOB,'nogs')
+JOB.covset=[1 2 4 3];
 end
 % or [1 2 4 3] for rp+cc+art+gs
 end
 cov_vals={[ones(d(4),1), linspace(-1,1,d(4))',rp], cc, gs, rmparam};
 cov_names={'trend+rigidmotion','+compcor','+globalsignal','+scrubbing'};
-cov_names_short={'+td+rp',['+cc_th0.99_n',num2str(EXP.num_pcs)],...
+cov_names_short={'+td+rp',['+cc_th0.99_n',num2str(JOB.num_pcs)],...
 ['+gs_0.99'],['+scrb_',num2str(size(rmparam,2))]};
 cov_names_shorter={'+td+rp','+cc','+gs','+scrb'};
 tag1{1}='orig';
 tag2{1}='orig';
 for j=1:4
-COV{j}  = cov_vals{EXP.covset(j)};
-Mdesc{j} = cov_names{EXP.covset(j)};
-tag1{j+1} = cov_names_short{EXP.covset(j)};
-tag2{j+1} = cov_names_shorter{EXP.covset(j)};
+COV{j}  = cov_vals{JOB.covset(j)};
+Mdesc{j} = cov_names{JOB.covset(j)};
+tag1{j+1} = cov_names_short{JOB.covset(j)};
+tag2{j+1} = cov_names_shorter{JOB.covset(j)};
 end
 output_suffix_short = output_suffix;
 output_suffix=[output_suffix [tag2{:}]];
 
-title(ax1,[subjid,'/',EXP.name_epi,':',output_suffix(2:end)],'interp','none');
+title(ax1,[subjid,'/',JOB.name_epi,':',output_suffix(2:end)],'interp','none');
 sumstat.tag=tag1;
 
 for i=1:4
@@ -271,7 +271,7 @@ end
 
 
 %% old codes for visualization
-%      if isfield(EXP,'plotuntil')&&EXP.plotuntil==1
+%      if isfield(JOB,'plotuntil')&&JOB.plotuntil==1
 %       continue
 %      end
 %
@@ -298,7 +298,7 @@ end
 %    tag=tag1;
 %    h=legend(h_lines,tag, 'location','eastoutside');
 %    grid on; box on; set(h,'interp','none')
-%    title([subjid,'/',EXP.name_epi,':',output_suffix_short(2:end)],'interp','none');
+%    title([subjid,'/',JOB.name_epi,':',output_suffix_short(2:end)],'interp','none');
 %    xlabel('Pearson correlation coefficient');ylabel({'estimated','kernel density'})
 %
 %    tag=tag2;
@@ -343,16 +343,16 @@ end
 %    name_figure='_corrdist.png';
 %    screen2png([path2,'resy',output_suffix,name_figure]);
 %    close(hf);
-%    if isfield(EXP,'dir_figure')
+%    if isfield(JOB,'dir_figure')
 %     copyfile([path2,'resy',output_suffix,name_figure],...
-%      [EXP.dir_figure,'/resy',output_suffix,name_figure(1:end-4),'_',subjid,'.png']);
+%      [JOB.dir_figure,'/resy',output_suffix,name_figure(1:end-4),'_',subjid,'.png']);
 %    end
 %
-%    if isfield(EXP,'plotuntil')&&EXP.plotuntil==2
+%    if isfield(JOB,'plotuntil')&&JOB.plotuntil==2
 %     continue
 %    end
 %    %% plot#4. sample timeseries (combine with plot#3?)
-%    if isfield(EXP,'sampletimeseries');
+%    if isfield(JOB,'sampletimeseries');
 %     % 1. find voxel indices for precuneous, med-prefrontal, precentral,
 %     aparc = load_uns_nii(fname_aparc);
 %     %aseglabels=[12130 11130]; % precuneous
@@ -396,7 +396,7 @@ end
 %     sc=2.5;
 %     corrthres=0.25;
 %     hf=figure('position',[1972, 33, d(2)*4*sc, d(1)*5*sc], 'color','k');
-%     t1w = load_uns_nii([EXP.dir_base,subjid,'/oBrain.nii']);
+%     t1w = load_uns_nii([JOB.dir_base,subjid,'/oBrain.nii']);
 %     t1w = t1w.img(:,:,crrmap.ijk(3))';
 %     [~,ax] =getLayout(20,[5,4]);
 %     [~,ax2] =getLayout(20,[5,4],[0.10 0.15]);
@@ -439,8 +439,8 @@ end
 %
 %      % individual timeseries
 %      xlim1=1;      xlim2=min(150, size(crrmap.yres,1));
-%      if isfield(EXP,'xlim')
-%       xlim1=EXP.xlim(1);    xlim2=EXP.xlim(2);
+%      if isfield(JOB,'xlim')
+%       xlim1=JOB.xlim(1);    xlim2=JOB.xlim(2);
 %      end
 %      for l=1:numel(roi)
 %       h=axespos(ax2,(i-1)*4+l+1);
@@ -469,23 +469,23 @@ end
 %     name_figure='_corrmap_inditimeseries.png';
 %     screen2png([path2,'resy',output_suffix,name_figure]);
 %     close(hf);
-%     if isfield(EXP,'dir_figure')
+%     if isfield(JOB,'dir_figure')
 %      copyfile([path2,'resy',output_suffix,name_figure],...
-%       [EXP.dir_figure,'/resy',output_suffix,name_figure(1:end-4),'_',subjid,'.png']);
+%       [JOB.dir_figure,'/resy',output_suffix,name_figure(1:end-4),'_',subjid,'.png']);
 %     end
 %    end
 
 
 %  %% final decision?
-%  if ~isfield(EXP,'cov_idx')
-%   disp([subjid,': enter EXP.cov_idx to select regressors and save a residual image']);
+%  if ~isfield(JOB,'cov_idx')
+%   disp([subjid,': enter JOB.cov_idx to select regressors and save a residual image']);
 %   continue
 %  else
 %   nii = load_uns_nii(fname_epi);
 %   % datatype=4, bitpix=16
 %   y = single(reshape(nii.img,[],d(4))');
 %   M=[];
-%   for i=1:EXP.cov_idx
+%   for i=1:JOB.cov_idx
 %    M=single([M COV{i}]);
 %   end
 %   % LSE (y-y_hat) and band-pass filtering
@@ -501,13 +501,13 @@ end
 %     output_suffix);
 %   end
 %   nii.img = reshape(yres',d);
-%   pcsnum=num2str(EXP.num_pcs);
-%   if isfield(EXP,'out_prefix')
-%    out_prefix=EXP.out_prefix;
+%   pcsnum=num2str(JOB.num_pcs);
+%   if isfield(JOB,'out_prefix')
+%    out_prefix=JOB.out_prefix;
 %   else
 %    out_prefix=['fr',pcsnum];
 %   end
-%   fname_out=[path1,out_prefix,EXP.name_epi];
+%   fname_out=[path1,out_prefix,JOB.name_epi];
 %   disp(['> saving residual in ',fname_out,'..']);
 %   save_untouch_nii(nii, fname_out);
 %  end

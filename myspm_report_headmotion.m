@@ -1,10 +1,10 @@
-function EXP = myspm_report_headmotion(EXP)
+function JOB = myspm_report_headmotion(JOB)
 
 num_run = numel(fnames);
 ax = axeslayout([num_subj num_run],'tight','tight');
 for iSubj = 1:num_subj
 for iRun = 1:num_run
-  cd(EXP.dir_base)
+  cd(JOB.dir_base)
   fnames= dir('rp*.txt');
   rp = load(fnames(iRun).name);
   

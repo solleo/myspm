@@ -1,12 +1,12 @@
-function EXP = myspm_denoise_mni(EXP)
-% EXP = myspm_denoise_mni(EXP)
+function JOB = myspm_denoise_mni(JOB)
+% JOB = myspm_denoise_mni(JOB)
 %
 % creates diagnostic figures from the results of myy_compcor.m
 % and "denoised" fMRI
 % 
 % ### ALWAYS OVERWRITES ###
 %
-% EXP requires:
+% JOB requires:
 %  .dir_data
 %  .name_epi;
 %  .TR_sec
@@ -18,45 +18,45 @@ function EXP = myspm_denoise_mni(EXP)
 %
 % (cc) 2015, 2017, sgKIM.
 
-if ~isfield(EXP,'fig_dpi'), fig_dpi=300; else fig_dpi=EXP.fig_dpi; end
+if ~isfield(JOB,'fig_dpi'), fig_dpi=300; else fig_dpi=JOB.fig_dpi; end
 % 0. set parameters
-if ~isfield(EXP,'sag'), EXP.sag=0; end
+if ~isfield(JOB,'sag'), JOB.sag=0; end
 path0=pwd;
-TR_sec = EXP.TR_sec;
+TR_sec = JOB.TR_sec;
 sumstat=[];
-if ~isfield(EXP,'num_pcs'), EXP.num_pcs=16; end
-if ~isfield(EXP,'detrend'), EXP.detrend=1;  end
-if ~isfield(EXP,'varnorm'), EXP.varnorm=1;  end
-if isfield(EXP,'restbpf'),  EXP.bpf=[0.009 0.08]; end
-FilterBand = EXP.bpf;
-if ~isfield(EXP,'param_cc')
- EXP.param_cc = sprintf('n%db%0.2f-%0.2f',EXP.num_pcs, EXP.bpf);
+if ~isfield(JOB,'num_pcs'), JOB.num_pcs=16; end
+if ~isfield(JOB,'detrend'), JOB.detrend=1;  end
+if ~isfield(JOB,'varnorm'), JOB.varnorm=1;  end
+if isfield(JOB,'restbpf'),  JOB.bpf=[0.009 0.08]; end
+FilterBand = JOB.bpf;
+if ~isfield(JOB,'param_cc')
+ JOB.param_cc = sprintf('n%db%0.2f-%0.2f',JOB.num_pcs, JOB.bpf);
 end
 
-if ~isfield(EXP,'param_art')
- if isfield(EXP,'global_threshold') && isfield(EXP,'motion_threshold')
-  EXP.param_art = sprintf('%0.1fstd_%0.1fmm', ...
-   EXP.global_threshold, EXP.motion_threshold);
+if ~isfield(JOB,'param_art')
+ if isfield(JOB,'global_threshold') && isfield(JOB,'motion_threshold')
+  JOB.param_art = sprintf('%0.1fstd_%0.1fmm', ...
+   JOB.global_threshold, JOB.motion_threshold);
  else
-  EXP.param_art='3.0std_0.5mm';
+  JOB.param_art='3.0std_0.5mm';
  end
 end
-[~,name1,ext1]=fileparts(EXP.name_epi);
-if ~isfield(EXP,'name_rp')
- [~,name1,~]=fileparts(EXP.name_epi);
- EXP.name_rp=['rp_',name1,'.txt'];
+[~,name1,ext1]=fileparts(JOB.name_epi);
+if ~isfield(JOB,'name_rp')
+ [~,name1,~]=fileparts(JOB.name_epi);
+ JOB.name_rp=['rp_',name1,'.txt'];
 end
-if ~isfield(EXP,'name_cc')
- EXP.name_cc=[name1,'_',EXP.param_cc,'_eigenvec.txt'];
+if ~isfield(JOB,'name_cc')
+ JOB.name_cc=[name1,'_',JOB.param_cc,'_eigenvec.txt'];
 end
-path1=[fullfile(EXP.dir_data),'/'];
+path1=[fullfile(JOB.dir_data),'/'];
 cd(path1);
 
 %% Create resampled mni-T1w and TPMs.
 fn0=[spm('dir'),'/canonical/avg152T1.nii'];
 fn1=[path1,'mni152.nii'];
 if ~exist(fn1,'file')
- myunix(['mri_convert --like ',EXP.name_epi,' ',fn0,' ',fn1]);
+ myunix(['mri_convert --like ',JOB.name_epi,' ',fn0,' ',fn1]);
 end
 if ~exist(['c3tpm.nii'],'file')
 fn0=[spm('dir'),'/tpm/TPM.nii'];
@@ -66,29 +66,29 @@ for c=1:3
  myunix(['fslroi ',fn0,' ',t1,num2str(c),'tpm.nii ',num2str(c-1),' 1'],1);
 end
 for c=1:3
- myunix(['mri_convert --like ',EXP.name_epi,' ',t1,num2str(c),'tpm.nii ', ...
+ myunix(['mri_convert --like ',JOB.name_epi,' ',t1,num2str(c),'tpm.nii ', ...
   'c',num2str(c),'tpm.nii'],1);
 end
 end
-EXP.fname_gmmask=['c1tpm.nii'];
-EXP.dir_func=EXP.dir_data;
+JOB.fname_gmmask=['c1tpm.nii'];
+JOB.dir_func=JOB.dir_data;
 
 %% read data
-EXP.fname_epi = fullfile(EXP.dir_data, EXP.name_epi);
-nii = load_uns_nii(EXP.fname_epi);
+JOB.fname_epi = fullfile(JOB.dir_data, JOB.name_epi);
+nii = load_uns_nii(JOB.fname_epi);
 d = nii.hdr.dime.dim(2:5);
 y = double(reshape(nii.img,[],d(4))');
 
 %% find compcor regressors
-fname_txt=[path1,EXP.name_cc];
-EXP.fname_out = fname_txt;
+fname_txt=[path1,JOB.name_cc];
+JOB.fname_out = fname_txt;
 %if ~exist(fname_txt,'file')
-EXP.skipcoreg=1;
-myy_compcor(EXP)
+JOB.skipcoreg=1;
+myy_compcor(JOB)
 %end
 cc  = load(fname_txt);
 %% find rp regressors
-fname_rp=EXP.name_rp;
+fname_rp=JOB.name_rp;
 rp=load(fname_rp);
 rp=[...
  rp(:,1:3), l2norm([0 0 0; diff(rp(:,1:3))]) , ...
@@ -98,12 +98,12 @@ save([p6,'rp8_',f6(4:end),e6],'rp','-ascii');
 
 % find global signal
 gs = load([path1,'/',name1,'_gm.txt']);
-output_suffix=['_',EXP.param_cc];
+output_suffix=['_',JOB.param_cc];
 
 % get 256 GM voxels from the slice?
-%gm = load_uns_nii(EXP.fname_gmmask);
-gm.hdr  = load_untouch_header_only(EXP.fname_gmmask);
-gm.img  = spm_read_vols(spm_vol_nifti(EXP.fname_gmmask));
+%gm = load_uns_nii(JOB.fname_gmmask);
+gm.hdr  = load_untouch_header_only(JOB.fname_gmmask);
+gm.img  = spm_read_vols(spm_vol_nifti(JOB.fname_gmmask));
 gm.img(isnan(gm.img))=0;
 idx = find(~~gm.img(:));
 idx = idx(round(linspace(1,numel(idx),256)));
@@ -144,29 +144,29 @@ V{1}(isnan(V{1}))=eps;
 
 % setting user-defined regressors to compare
 M=[];
-if ~isfield(EXP,'covset')
- EXP.covset=[1 2 3 4];
- if isfield(EXP,'nogs')
-  EXP.covset=[1 2 4 3];
+if ~isfield(JOB,'covset')
+ JOB.covset=[1 2 3 4];
+ if isfield(JOB,'nogs')
+  JOB.covset=[1 2 4 3];
  end
  % or [1 2 4 3] for rp+cc+art+gs
 end
 cov_vals={[ones(d(4),1), linspace(-1,1,d(4))',rp], cc, gs};
 cov_names={'trend+rigidmotion','+compcor','+globalsignal'};
-cov_names_short={'+td+rp',['+cc_n',num2str(EXP.num_pcs)],...
+cov_names_short={'+td+rp',['+cc_n',num2str(JOB.num_pcs)],...
  ['+gs']};
 cov_names_shorter={'+td+rp','+cc','+gs'};
 tag1{1}='orig';
 tag2{1}='orig';
 for j=1:3
- COV{j}  = cov_vals{EXP.covset(j)};
- Mdesc{j} = cov_names{EXP.covset(j)};
- tag1{j+1} = cov_names_short{EXP.covset(j)};
- tag2{j+1} = cov_names_shorter{EXP.covset(j)};
+ COV{j}  = cov_vals{JOB.covset(j)};
+ Mdesc{j} = cov_names{JOB.covset(j)};
+ tag1{j+1} = cov_names_short{JOB.covset(j)};
+ tag2{j+1} = cov_names_shorter{JOB.covset(j)};
 end
 output_suffix_short = output_suffix;
 output_suffix=[output_suffix [tag2{:}]];
-title(ax1,[EXP.dir_data,'/',EXP.name_epi,':',output_suffix(2:end)],'interp','none');
+title(ax1,[JOB.dir_data,'/',JOB.name_epi,':',output_suffix(2:end)],'interp','none');
 sumstat.tag=tag1;
 
 for i=1:3
@@ -193,9 +193,9 @@ end
 
 colormap(sgcolormap('CKM'));
 name_figure='_timeseries.png';
-screen2png([EXP.dir_func,'/',name1,output_suffix,name_figure],fig_dpi);
+screen2png([JOB.dir_func,'/',name1,output_suffix,name_figure],fig_dpi);
 close(hf);
-if isfield(EXP,'plotuntil')&&EXP.plotuntil==1
+if isfield(JOB,'plotuntil')&&JOB.plotuntil==1
  return
 end
 
@@ -230,7 +230,7 @@ if isPairDistance
  tag=tag1;
  h=legend(h_lines,tag, 'location','eastoutside');
  grid on; box on; set(h,'interp','none')
- title([EXP.dir_data,'/',EXP.name_epi,':',output_suffix_short(2:end)],'interp','none');
+ title([JOB.dir_data,'/',JOB.name_epi,':',output_suffix_short(2:end)],'interp','none');
  xlabel('Pearson correlation coefficient');ylabel({'estimated','kernel density'})
  
  tag=tag2;
@@ -299,21 +299,21 @@ if isPairDistance
  
  % save figure
  name_figure='_corrdist.png';
- screen2png([EXP.dir_func,'/',name1,output_suffix,name_figure],fig_dpi);
+ screen2png([JOB.dir_func,'/',name1,output_suffix,name_figure],fig_dpi);
  close(hf);
 end
 
-if isfield(EXP,'plotuntil')&&EXP.plotuntil==2
+if isfield(JOB,'plotuntil')&&JOB.plotuntil==2
  return
 end
 
 %% plot#3: DMN slice maps
 sc=2.5; % figure scale
 
-if isfield(EXP,'dir_fs')
+if isfield(JOB,'dir_fs')
  hf=figure('position',[1972, 33, d(2)*4*sc, d(1)*5*sc], 'color','k');
- t1w = load_uns_nii([EXP.dir_data,'/oBrain.nii']);
- if EXP.sag
+ t1w = load_uns_nii([JOB.dir_data,'/oBrain.nii']);
+ if JOB.sag
   % get a sagittal slice
   t1w = squeeze(t1w.img(crrmap.ijk(1),:,:))';
   crrmap.ind_gm=find(gm.img(crrmap.ijk_med(1),:,:));
@@ -335,7 +335,7 @@ if isfield(EXP,'dir_fs')
   end
   
   % spatial smoothing
-  if EXP.sag
+  if JOB.sag
    % 3D (x,y,t)
    crrmap.yres_3d = reshape(crrmap.yres',d(2),d(3),[]);
   else
@@ -353,14 +353,14 @@ if isfield(EXP,'dir_fs')
   % axial slices
   h=axespos(ax,(i-1)*4+4);
   img1=double(t1w);
-  if EXP.sag
+  if JOB.sag
    img2=reshape(crrmap.rsfc', [d(2) d(3)])';
   else
    img2=reshape(crrmap.rsfc', [d(1) d(2)])';
   end
   imagecorr1(img1, img2, 0.25);
   hold on;
-  if EXP.sag
+  if JOB.sag
    line([crrmap.ijk_med(2);crrmap.ijk_med(2)],[0 d(3)],  'color','w');
    line([0 d(2)], [crrmap.ijk_med(3);crrmap.ijk_med(3)], 'color','w');
    if i==1, text(d(3)*0.3,d(2)*0.95,'FWHM=1.5 pixels', 'color','w', 'fontsize',12); end
@@ -373,7 +373,7 @@ if isfield(EXP,'dir_fs')
   
   % and z-scored timeseries
   h=axespos(ax2,(i-1)*2+1);
-  if EXP.sag
+  if JOB.sag
    imagesc( zscore(crrmap.yres(:,crrmap.ind_gm))' );
   else
    imagesc( zscore(crrmap.yres(:,crrmap.ind_gm))' );
@@ -413,15 +413,15 @@ if isfield(EXP,'dir_fs')
  
  colormap(sgcolormap('CKM'));
  name_figure='_corrmap.png';
- screen2png([EXP.dir_func,'/',name1,output_suffix,name_figure], fig_dpi);
+ screen2png([JOB.dir_func,'/',name1,output_suffix,name_figure], fig_dpi);
  close(hf);
 end
-if isfield(EXP,'plotuntil')&&EXP.plotuntil==3
+if isfield(JOB,'plotuntil')&&JOB.plotuntil==3
  return
 end
 
 %% plot#4. sample timeseries (combine with plot#3?)
-if isfield(EXP,'dir_fs')
+if isfield(JOB,'dir_fs')
  % 1. find voxel indices for precuneous, med-prefrontal, precentral,
  aparc = load_uns_nii(fname_aparc);
  %aseglabels=[12130 11130]; % precuneous
@@ -463,7 +463,7 @@ if isfield(EXP,'dir_fs')
  end
  
  hf=figure('position',[1972, 33, d(2)*4*sc, d(1)*5*sc], 'color','k');
- t1w = load_uns_nii([EXP.dir_data,'/oBrain.nii']);
+ t1w = load_uns_nii([JOB.dir_data,'/oBrain.nii']);
  t1w = t1w.img(:,:,crrmap.ijk(3))';
  [~,ax] =getLayout(20,[5,4]);
  [~,ax2] =getLayout(20,[5,4],[0.10 0.15]);
@@ -509,8 +509,8 @@ if isfield(EXP,'dir_fs')
   
   % individual timeseries
   xlim1=1;      xlim2=min(150, size(crrmap.yres,1));
-  if isfield(EXP,'xlim')
-   xlim1=EXP.xlim(1);    xlim2=EXP.xlim(2);
+  if isfield(JOB,'xlim')
+   xlim1=JOB.xlim(1);    xlim2=JOB.xlim(2);
   end
   for l=1:numel(roi)
    h=axespos(ax2,(i-1)*4+l+1);
@@ -537,38 +537,38 @@ if isfield(EXP,'dir_fs')
  
  colormap(sgcolormap('CKM'));
  name_figure='_corrmap_inditimeseries.png';
- screen2png([EXP.dir_func,'/',name1,output_suffix,name_figure], fig_dpi);
+ screen2png([JOB.dir_func,'/',name1,output_suffix,name_figure], fig_dpi);
  close(hf);
 end
 
 %% final decision?: SOMETHING'S WRONG... DO NOT USE UNTIL YOU FIX IT
-if ~isfield(EXP,'cov_idx')
- disp([EXP.dir_data,': enter EXP.cov_idx to select regressors and save a residual image']);
+if ~isfield(JOB,'cov_idx')
+ disp([JOB.dir_data,': enter JOB.cov_idx to select regressors and save a residual image']);
  return
 end
 out_prefix=[];
-pcsnum=num2str(EXP.num_pcs);
-if isfield(EXP,'out_prefix')
- out_prefix=EXP.out_prefix;
+pcsnum=num2str(JOB.num_pcs);
+if isfield(JOB,'out_prefix')
+ out_prefix=JOB.out_prefix;
 else
- if EXP.bpf(1)~=0 && isinf(EXP.bpf(2))
+ if JOB.bpf(1)~=0 && isinf(JOB.bpf(2))
   out_prefix=['hpf'];%r',pcsnum];
- elseif EXP.bpf(1)==0 && ~isinf(EXP.bpf(2))
+ elseif JOB.bpf(1)==0 && ~isinf(JOB.bpf(2))
   out_prefix=['lpf'];%r',pcsnum];
- elseif EXP.bpf(1)~=0 && ~isinf(EXP.bpf(2))
+ elseif JOB.bpf(1)~=0 && ~isinf(JOB.bpf(2))
   out_prefix=['bpf'];%r',pcsnum];
  end
- if EXP.cov_idx >= 2
+ if JOB.cov_idx >= 2
   out_prefix=[out_prefix,'r',pcsnum];
  end
 end
-fname_out=[path1,out_prefix,EXP.name_epi];
+fname_out=[path1,out_prefix,JOB.name_epi];
 if ~exist(fname_out,'file')
-nii = load_uns_nii(EXP.fname_epi);
+nii = load_uns_nii(JOB.fname_epi);
 % datatype=4, bitpix=16
 y = single(reshape(nii.img,[],d(4))');
 M=[];
-for i=1:EXP.cov_idx
+for i=1:JOB.cov_idx
  M=single([M COV{i}]);
 end
 % LSE (y-y_hat)
@@ -592,7 +592,7 @@ nii.img = reshape(yres',d);
 disp(['> saving residual timeseries in ',fname_out,' ..']);
 save_untouch_nii(nii, fname_out);
 end
-EXP.fname_out=fname_out;
+JOB.fname_out=fname_out;
 cd(path0);
 
 end

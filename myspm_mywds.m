@@ -1,5 +1,5 @@
 function myspm_mywds(fname_epi_orig)
-% EXP requires:
+% JOB requires:
 %
 % .fname_epi_orig
 
@@ -47,16 +47,16 @@ rp=load(fname_rp);
 %  rp(:,4:6), l2norm([0 0 0; diff(rp(:,4:6))]) ];
 % 1-2. compcor regressors (3) 
 fname_epi=['ua',epi_suffix,'.nii'];
-exp2=[];
-exp2.dir_data=p1;
-exp2.fname_epi=fname_epi;
+job2=[];
+job2.dir_data=p1;
+job2.fname_epi=fname_epi;
 hdr=load_untouch_header_only([epi_suffix,'.nii']);
-exp2.TR_sec=hdr.dime.pixdim(5);
-disp(['TR = ',num2str(exp2.TR_sec),' sec']);
-exp2.num_pcs=1;
-exp2.onlycsf=1;
-exp2=myy_compcor(exp2);
-cc=load(exp2.fname_cc);
+job2.TR_sec=hdr.dime.pixdim(5);
+disp(['TR = ',num2str(job2.TR_sec),' sec']);
+job2.num_pcs=1;
+job2.onlycsf=1;
+job2=myy_compcor(job2);
+cc=load(job2.fname_cc);
 % 3-3. get residual
 nii=load_untouch_nii(fname_epi);
 y=img2y(nii.img);
@@ -76,11 +76,11 @@ end
 ls(fname_wds)
 
 % 2. need to swap matrices and change vox-to-world matrix...
-exp1=[];
-exp1.fname_moving = fname_wds;
-exp1.fname_fixed  = ['meanua',epi_suffix,'.nii'];
-exp1.interp=0;
-myspm_coreg4d(exp1)
+job1=[];
+job1.fname_moving = fname_wds;
+job1.fname_fixed  = ['meanua',epi_suffix,'.nii'];
+job1.interp=0;
+myspm_coreg4d(job1)
 fname_wds=['o',fname_wds];
 
 
