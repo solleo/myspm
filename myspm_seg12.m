@@ -8,6 +8,7 @@ function JOB=myspm_seg12(JOB,runmode)
 % (.mw)
 % (.naitve)
 % (.norm)
+% (.runmode)   [string] 'SS'(mw=zeros(1,6), norm=1) | 
 %
 % if isMp2rage=1, then using __original image__ instead of intensity-bias
 % corrected one (i.e., m*)

@@ -150,7 +150,8 @@ switch design
     
   case 't1' % one-sample t-test
     matlabbatch{1}.spm.stats.factorial_design.des.t1.scans = fnames;
-    JOB.vi.name='1';
+    JOB.vi.name = '1';
+    JOB.cntrstMtx = [1; -1];
     
   case 'pt' % paired t-test
     for n=1:size(fnames,1)
@@ -260,11 +261,11 @@ end
 
 %% Now create result reports
 if ~isfield(JOB,'thres')
- JOB.thres.desc  = 'cluster';
- JOB.thres.alpha = 0.05;
+  JOB.thres.desc  = 'cluster';
+  JOB.thres.alpha = 0.05;
 end
-if ~(isfield(JOB,'NOCNTRST') && JOB.NOCNTRST) 
- myspm_cntrst (JOB);
+if ~(isfield(JOB,'NOCNTRST') && JOB.NOCNTRST)
+  myspm_cntrst (JOB);
 end
 
 end

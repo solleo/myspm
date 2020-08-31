@@ -74,9 +74,10 @@ function JOB=myspm_fmriglm (JOB)
 % (.noreport)       [1x1] creates no reports (stops after cntrst)
 % (.masking)        '1xN' filename for an explicit (inclusive) mask
 %                         * NECESSARY for images with negative values!
+% (.maskthres)      [1x1] masking threshold prop. to gloabl (default = 0.8)
 % (.thres.desc)     '1xN'  'FWE','none', or 'cluster'(default)
-% (.thres.alpha)    [1x1]  alpha level (default=0.05)
-% (.thres.extent)   [1x1]  extent threshold of clusters in voxels (default=0)
+% (.thres.alpha)    [1x1] alpha level (default=0.05)
+% (.thres.extent)   [1x1] extent threshold of clusters in voxels (default=0)
 % (.thres.clusterInitAlpha)   [1x1] cluster forming height threshold (default=0.0001)
 % (.thres.clusterInitExtent)  [1x1] cluster forming extent (in voxels) threshold (default=10)
 % (.fname_struct)   '1xN' fullpath filename for background anatomical image for orthogonal slices
@@ -220,6 +221,7 @@ if nargin == 0, help(mfilename); return; end
 if ~isfield(JOB,'overwrite'), JOB.overwrite=0; end
 spm('Defaults','fmri');
 spm_jobman('initcfg');
+spm fmri % initialize! or MATLAB@Linux will crash while running spm_spm()
 
 %% 0-1. find glm directory name and create one
 if ~isfield(JOB,'dir_glm')
@@ -273,37 +275,37 @@ if ~isfield(JOB,'hpfcutoff')
   JOB.hpfcutoff = 128;
 end
 
-%% 0-4. subtract skipped TR for unsteady state
-[~,f1,~] = fileparts(fnames{1});
-if contains(f1,'_skip') && ~isfield(JOB,'num_skip') % look for suffix "_skip#"
-  nstr = numel(f1);
-  idx1 = strfind(f1,'_skip');
-  idx1 = idx1+5;
-  idx2 = strfind(f1,'_');
-  if any(idx2>idx1)
-    nstr = idx2(find(idx2>idx1,1,'first'))-1;
-  end
-  % check if this is really number:
-  if ~strcmp(f1(idx1:nstr), num2str(str2num(f1(idx1:nstr))))
-    error('cannot determine # of skipped volumes. Enter .num_skip !')
-  end
-  JOB.num_skip = str2double(f1(idx1:nstr));
-else
-  JOB.num_skip = 0;
-end
-if JOB.num_skip
-  sprintf('[!] onset adjusted for %i dummy volumes (%i sec)..\n',...
-    JOB.num_skip, JOB.TR_sec*JOB.num_skip);
-  % adjust onset:
-  for j=1:JOB.NumSess
-    for k=1:JOB.NumCond
-      JOB.cond(j,k).onset = JOB.cond(j,k).onset - JOB.TR_sec*JOB.num_skip;
-    end
-  end
-end
+% %% 0-4. subtract skipped TR for unsteady state
+% [~,f1,~] = fileparts(fnames{1});
+% if contains(f1,'_skip') && ~isfield(JOB,'num_skip') % look for suffix "_skip#"
+%   nstr = numel(f1);
+%   idx1 = strfind(f1,'_skip');
+%   idx1 = idx1+5;
+%   idx2 = strfind(f1,'_');
+%   if any(idx2>idx1)
+%     nstr = idx2(find(idx2>idx1,1,'first'))-1;
+%   end
+%   % check if this is really number:
+%   if ~strcmp(f1(idx1:nstr), num2str(str2num(f1(idx1:nstr))))
+%     error('cannot determine # of skipped volumes. Enter .num_skip !')
+%   end
+%   JOB.num_skip = str2double(f1(idx1:nstr));
+% else
+%   JOB.num_skip = 0;
+% end
+% if JOB.num_skip
+%   warning('[!] onset adjusted for %g dummy volumes (%g sec)..\n',...
+%     JOB.num_skip, JOB.TR_sec*JOB.num_skip);
+%   % adjust onset:
+%   for j=1:JOB.NumSess
+%     for k=1:JOB.NumCond
+%       JOB.cond(j,k).onset = JOB.cond(j,k).onset - JOB.TR_sec*JOB.num_skip;
+%     end
+%   end
+% end
 
 %% 1. model specification
-spm fmri % initialize! or MATLAB@Linux will crash while running spm_spm()
+
 matlabbatch = {};
 matlabbatch{1}.spm.stats.fmri_spec.sess.multi = {''};
 matlabbatch{1}.spm.stats.fmri_spec.sess.multi_reg = {''}; % for spm12
@@ -478,8 +480,11 @@ for j = 1:JOB.NumSess
   if isfield(JOB,'masking')
     disp(['[1f] A mask is given: ',JOB.masking]);
     matlabbatch{1}.spm.stats.fmri_spec.mask = {JOB.masking};
-  else
-    matlabbatch{1}.spm.stats.fmri_spec.mask = {''};
+  end
+  if isfield(JOB,'maskthres')
+    disp(['[1f] Masking threshold (wrt global) is given: ',...
+      num2str(JOB.maskthres)]);
+    matlabbatch{1}.spm.stats.fmri_spec.mthresh = JOB.maskthres;
   end
   
   % autocorrelation model

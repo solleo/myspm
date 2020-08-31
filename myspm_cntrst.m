@@ -50,7 +50,11 @@ if ~isfield(JOB,'cntrstMtx')
     [n, k] = size(SPM.xX.X);
     JOB.cntrstMtx = kron([zeros(k-1,1) eye(k-1)],[1 -1]');
     if ~isfield(JOB,'titlestr')
-      varnames = {SPM.xC.rcname};
+      if ~isempty(SPM.xC)
+        varnames = {SPM.xC.rcname};
+      else
+        varnames= {'1'};
+      end
       JOB.titlestr = {};
       for i=1:numel(varnames)
         JOB.titlestr = [JOB.titlestr, ['+',varnames{i}]];
