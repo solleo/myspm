@@ -1,13 +1,32 @@
 function [w,gi,lag,ri] = myspm_est_res(SPM)
-% code robbed from spm_est_V.m:
+% code taken from spm_est_V.m
 
 dt = SPM.xY.RT;
 X  = SPM.xX.X;
 X  = [X SPM.xX.K.X0];                         % add low-freq cosine bases
+X  = [spm_conv(randn(size(X,1),4),8/dt,0) X]; % add smooth random reg
 m  = size(X,1);
 R  = speye(m,m) - X*spm_pinv(X);              % residual forming matrix
 
-C  = SPM.xVi.Cy;                              % sample covariance
+% get data from significant voxels
+%--------------------------------------------------------------------------
+N     = 4000;                               % number of voxels
+Vspm  = SPM.xCon(1).Vspm;                   % get first SPM
+XYZ   = SPM.xVol.XYZ;
+F     = spm_sample_vol(Vspm,XYZ(1,:),XYZ(2,:),XYZ(3,:),0);
+[F,i] = sort(F,2,'descend');
+XYZ   = XYZ(:,i(1:16000));                  % voxels for t-test
+
+% get data and covariance
+%--------------------------------------------------------------------------
+Y     = spm_get_data(SPM.xY.VY,XYZ);
+m     = size(Y,1);                          % number of scans
+% Y   = spm_null_data(Y,SPM);               % uncomment for null data
+ 
+% Data covariance
+%--------------------------------------------------------------------------
+C     = cov(Y(:,1:N)');
+% C  = SPM.xVi.Cy;                              % sample covariance
 C  = C*trace(R*R')/trace(R*C*R');             % scaling
 
 % % covariance components (a mixture of exponentials)
@@ -42,7 +61,7 @@ for i = 1:size(g,2)
   f      = ifft(g(:,i));
   r(:,i) = real(fftshift(f));
 end
-lag   = (-32:32);
+lag   = -32:32;
 i     = lag + fix(m/2);
 ri    = r(i,:);
 lag   = lag*dt;
