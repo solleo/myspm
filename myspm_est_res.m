@@ -1,6 +1,6 @@
 function [w,gi,lag,ri] = myspm_est_res(SPM)
 % code taken from spm_est_V.m
-
+cd(SPM.swd)
 dt = SPM.xY.RT;
 X  = SPM.xX.X;
 X  = [X SPM.xX.K.X0];                         % add low-freq cosine bases
