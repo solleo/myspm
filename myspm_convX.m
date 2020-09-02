@@ -6,7 +6,7 @@ function [xX,X] = myspm_convX(job)
 % job requires:
 %  .tr_sec     [1x1] time of repetition in sec
 %  .onset_sec  {1xR} cell array of onset times over R runs
-%  .dur_sec    {1xR} cell array of durations over R runs
+%  .dur_sec    {1xR} | [1x1] cell array of durations over R runs
 %  .num_frames [1xR] double array of # of frames (scans)
 % (.regname)   '1xN' name of the regressor (not important; default: 'x')
 % (.fMRI_T)    [1x1] number of bins within one TR (default: 16)
@@ -23,13 +23,20 @@ end
 if ~isfield(job,'fMRI_T0')
   job.fMRI_T0 = 8;
 end
+if ~iscell(job.dur_sec) && isnumeric(job.dur_sec)
+  dur = job.dur_sec;
+  job.dur_sec = cell(1,num_runs);
+  for irun = 1:num_runs
+    job.dur_sec{irun} = job.onset_sec{irun}*0 + dur;
+  end
+end
 
 SPM = [];
 SPM.xBF = spm_get_bf(...
-  struct('T',job.fMRI_T ,'T0',job.fMRI_T0, ...
-    'dt',job.tr_sec/job.fMRI_T0, 'name','hrf'));
+  struct('UNITS','secs', 'T',job.fMRI_T ,'T0',job.fMRI_T0, ...
+    'dt',job.tr_sec/job.fMRI_T, 'name','hrf'));
 SPM.Sess = [];
-SPM.nscan = num_frames;
+SPM.nscan = job.num_frames;
 for irun = 1:num_runs
   SPM.Sess(irun).U = struct(...
     'name',{{job.regname}},...
@@ -39,7 +46,7 @@ for irun = 1:num_runs
   X{irun} = spm_Volterra(U, SPM.xBF.bf, 1);
   % downsample (spm_fMRI_design:JUST DECIMATION!):
   xX{irun} = X{irun}(...
-    (0:(num_frames(irun) - 1))*job.fMRI_T + job.fMRI_T0 + 32,:);
+    (0:(job.num_frames(irun) - 1))*job.fMRI_T + job.fMRI_T0 + 32,:);
   % 32 bin offset is hardcoded in spm_fMRI_design. 
   %  (Perhaps something in spm_Volterra?)
 end
