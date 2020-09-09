@@ -15,7 +15,7 @@
 <li><code>myspm_NMatlas.m</code> returns structure names from [spm12]/tpm/labels_Neuromorphometrics[.xml|.nii], which is derived from the "MICCAI 2012 Grand Challenge and Workshop on Multi-Atlas Labeling" (https://masi.vuse.vanderbilt.edu/workshop2012/index.php/Challenge_Details). These data were released under the Creative Commons Attribution-NonCommercial (CC BY-NC) with no end date. Users should credit the MRI scans as originating from the OASIS project (http://www.oasis-brains.org/) and the labeled data as "provided by Neuromorphometrics, Inc. (http://Neuromorphometrics.com/) under academic subscription".  These references should be included in all workshop and final publications.</li>
 </ul>
 
-Please note that the other functions not noted above are still 'in development'. You may not want to use half-made functions and/or to read through the chaotic codes ;)
+Please note that the other functions not noted above are still 'in development'. You may not want to use half-made functions and/or to read through the chaotic code ;)
 </article>
   </div>
 
