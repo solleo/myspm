@@ -51,7 +51,7 @@ S  = spm_sqrtm(C);
 g  = [  sum(abs(fft(full(R)).^2),2)];         % residual forming matrix
 g  = [g sum(abs(fft(full(R*S)).^2),2)];       % residuals unwhitened
 g  = [g sum(abs(fft(full(R*W*S)).^2),2)] ;    % residuals whitened
-i  = fix(2:m/2);
+i  = floor(2:m/2);
 w  = (1:length(i))/(2*length(i)*dt);
 gi = g(i,:);
 
@@ -62,7 +62,8 @@ for i = 1:size(g,2)
   r(:,i) = real(fftshift(f));
 end
 lag   = -32:32;
-i     = lag + fix(m/2);
+iseven = @(x) ~mod(x,2);
+i     = lag + fix(m/2) + iseven(m);
 ri    = r(i,:);
 lag   = lag*dt;
 
