@@ -1,7 +1,7 @@
 function [xX,X] = myspm_convX(job)
 % Creates HRf-convoluted regressors using SPM12
 %
-% xX = myspm_get_xX(job)
+% xX = myspm_convX(job)
 % 
 % job requires:
 %  .tr_sec     [1x1] time of repetition in sec
