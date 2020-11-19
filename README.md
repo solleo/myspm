@@ -16,6 +16,7 @@
 </ul>
 
 Please note that the other functions not noted above are still 'in development'. You may not want to use half-made functions and/or to read through the chaotic codes ;)
+TODO: this should work without other things than MATLAB and SPM12.
 </article>
   </div>
 
