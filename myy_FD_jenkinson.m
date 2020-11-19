@@ -25,7 +25,7 @@ center = [hdr.hist.srow_x; hdr.hist.srow_y; hdr.hist.srow_z; 1 1 1 1]*[(hdr.dime
 center = center(1:3);
 end
 
-FD_j = zeros(nTimePoint-1,1);
+FD_J = zeros(nTimePoint-1,1);
 for t=2:nTimePoint
 M_RigidBodyTransform_0 = RigidBodyTransform(cosq1,sinq1,cosq2,sinq2,cosq3,sinq3,t,RP);
 M_RigidBodyTransform_1 = RigidBodyTransform(cosq1,sinq1,cosq2,sinq2,cosq3,sinq3,t,RP);  
@@ -39,14 +39,14 @@ A = M(1:3,1:3);
 
 T = M(1:3,4);
 
-FD_j(t-1) = sqrt(rmax*rmax/5*trace(A'*A) + (T+A*center)'*(T+A*center));
+FD_J(t-1) = sqrt(rmax*rmax/5*trace(A'*A) + (T+A*center)'*(T+A*center));
 
 end
-FD_j=[0;FD_j]; %The FD_Jenkinson at time point t means the movement from time point t-1 to time point t. (Put the FD_Jenkinson for the first time point to "0".)
+FD_J=[0;FD_J]; %The FD_Jenkinson at time point t means the movement from time point t-1 to time point t. (Put the FD_Jenkinson for the first time point to "0".)
 
 end
 
-function M_RigidBodyTransform = RigidBodyTransform(cosq1,sinq1,cosq2,sinq2,cosq3,sinq3,t,RP)
+function M_rigid = RigidBodyTransform(cosq1,sinq1,cosq2,sinq2,cosq3,sinq3,t,RP)
 M1=[1       0        0     0;...
 0    cosq1(t)  sinq1(t)  0;...
 0    -sinq1(t) cosq1(t)  0;...
