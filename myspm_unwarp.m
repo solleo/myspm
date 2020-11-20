@@ -80,7 +80,7 @@ realignunwarp1.uwroptions.mask = 1;
 realignunwarp1.uwroptions.prefix = 'u';
 matlabbatch={};
 matlabbatch{1}.spm.spatial.realignunwarp = realignunwarp1;
-fname_in=[p1,'/',f1,e1];
+fname_in = [p1,'/',f1,e1];
 ls(fname_in);
 fname_output = [p1,'/u',f1,e1];
 if ~exist(fname_output,'file') || JOB.overwrite
@@ -88,9 +88,10 @@ if ~exist(fname_output,'file') || JOB.overwrite
   save(fname_matlabbatch,'matlabbatch');
   spm_jobman('run', matlabbatch);
   ls(fname_output)
-  
+  [p2,f2,e2] = myfileparts(JOB.fname_t1w);
   % visualize unwarping results:
-  compare_unwarped([p1,'/',f1,e1], [p1,'/u',f1,e1], JOB.fname_t1w)
+  compare_unwarped([p1,'/',f1,e1], [p1,'/u',f1,e1], ...
+    [p2,'/m',f2,e2])
 end
 end
 

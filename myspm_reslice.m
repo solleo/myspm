@@ -14,7 +14,8 @@ else
 end
 matlabbatch={};
 matlabbatch{1}.spm.spatial.coreg.write.ref = {[JOB.fname_ref,',1']};
-matlabbatch{1}.spm.spatial.coreg.write.source = cellstr(spm_select('expand',JOB.fname_src));
+matlabbatch{1}.spm.spatial.coreg.write.source = ...
+  cellstr(spm_select('expand',JOB.fname_src));
 matlabbatch{1}.spm.spatial.coreg.write.roptions.interp = interp;
 matlabbatch{1}.spm.spatial.coreg.write.roptions.wrap = [0 0 0];
 matlabbatch{1}.spm.spatial.coreg.write.roptions.mask = 0;
