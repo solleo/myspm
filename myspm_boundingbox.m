@@ -3,6 +3,7 @@ function myspm_boundingbox(fn_img, arg2, fn_out)
 %
 % fn_img : 3D/4D image filename (realigned & normalized)
 % thrs   : a numeric threshold or 'nz','nn','fv'
+%          OR used-defined bounding box [2x3] in mm
 %
 % SEE ALSO: SPM_GET_BBOX, SPM_GET_MATDIM
 %
@@ -77,6 +78,4 @@ myspm_boundingbox('test3.nii',0)
 myspm_boundingbox('test3.nii','nz')
 myspm_boundingbox('test3.nii',[-78 -112 -70; 78 76 85])
 myspm_boundingbox('test3.nii','canon')
-
-
 end

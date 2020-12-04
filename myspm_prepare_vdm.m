@@ -1,11 +1,15 @@
-function myspm_prepare_vdm(shortmag, phase, TEs_msec, trgEPI, TotalReadoutTime_msec, fname_t1w)
+function myspm_prepare_vdm(shortmag, phase, TEs_msec, trgEPI1, TotalReadoutTime_msec, fname_t1w)
 % myspm_prepare_vdm(shortmag, phase, TEs, trgEPI, TotalReadoutTime, fname_t1w)
 %
 % shortmag: short TE magnitude
 % phase: phase difference
 % TEs : [te1 te2]
 % TotalReadoutTime [msec]: Total readout time of the >>TARGET EPI<< (not the fieldmap!)
-% trgEPI: epi to unwarp
+% trgEPI1: epi to unwarp >>>NOTE<<<: will create a warped version but only
+% with the first volume of the 4-D image. So please feed in just the first
+% volume (or mean volume) so that it won't create a file named
+% "ua${EPI}.nii" but with only the first volume of the 4-D timeseries by
+% mistake.
 %
 % (cc) 2014, 2019, sgKIM, solleo@gmail.com
 
@@ -44,11 +48,11 @@ subj.defaults.defaultsval.mflags.ndilate  = 4;
 subj.defaults.defaultsval.mflags.thresh   = 0.5;
 subj.defaults.defaultsval.mflags.reg      = 0.2;
 
-[path1,f1,e1]=fileparts(trgEPI);
+[path1,f1,e1]=fileparts(trgEPI1);
 if isempty(path1), path1=pwd; end
-trgEPI=[f1,e1];
+trgEPI1=[f1,e1];
 
-subj.session.epi{1} = [fullfile(path1,trgEPI),',1'];
+subj.session.epi{1} = [fullfile(path1,trgEPI1),',1'];
 subj.matchvdm       = 1;
 subj.sessname       = 'session';
 subj.writeunwarped  = 1;

@@ -9,17 +9,7 @@ function JOB = myspm_smooth(JOB)
 
 if ~nargin, help(mfilename); return; end
 if ~isfield(JOB,'overwrite'), JOB.overwrite = 0; end
-%% for compatibility with the old code:
-if isfield(JOB,'fnames') && iscell(JOB.fnames)
-  for y = 1:numel(JOB.fnames)
-    JOB2 = [];
-    JOB2.fwhm_mm = JOB.fhwm_mm;
-    JOB2.fname = JOB.fnames{y};
-    myspm_smooth(JOB2);
-  end
-  return
-end
-%%
+
 ls(JOB.fname);
 matlabbatchs = {};
 matlabbatchs{1}.spm.spatial.smooth.dtype = 0;  % same precision

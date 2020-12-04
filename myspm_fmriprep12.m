@@ -109,6 +109,13 @@ if ~isfield(job,'dname_data')
 end
 cd(job.dname_data)
 
+%% KEEP DIARY
+diary('myspm_fmriprep12.log') % OPEN
+disp(repmat('=',[1 72]))
+fprintf('[%s:%s] START\n', mfilename, datestr(now,31))
+disp(job)
+disp(repmat('=',[1 72]))  
+
 %% ---T1w processing---
 %% 1. Unified segmentation
 % outputs:
@@ -316,7 +323,6 @@ if ~exist(fname_out,'file') || job.overwrite
         myspm_stc(job1);
       end
     end
-    
   end
 end
 isdone(fname_out, pid, nprocs);
@@ -331,7 +337,7 @@ pid = pid+1;
 % [5]  meanua${epi}.nii : mean image of [4]
 job1 = job;
 job1.fname_epi = [p1,'/a',f1,e1];
-fname_out = [p1,'/ua',f1,e1];
+fname_out = [p1,'/meanua',f1,e1];
 if ~isfile(fname_out)
   fprintf('[%s:%i/%i] unwarping and realignment..\n',...
     mfilename, pid, nprocs)
@@ -346,7 +352,7 @@ pid = pid+1;
 % outputs:
 % - if SPM12 used:
 % [1]  ua${epi}.nii       : header-modified EPI images
-% [2]  rmmeanua${epi}.nii : resampled mean EPI image (to quality check)
+% [2]  rmmeanua${epi}.nii : resampled mean EPI image (for quality check)
 %
 % - if ANTs used:
 % [1]  mmeanuaa${epi}_to_bm${t1w}_stage0_Composite.h5
@@ -362,7 +368,7 @@ if ~job.useants
       mfilename, pid, nprocs)
     myspm_coreg_hdr(job1);
   end
-  
+    
 else
   % Intensity-bias correction of EPI (for stable coregistration)
   fname_epi_unbiased = [p1,'/mmeanua',f1,e1]; % bias-corrected EPI
@@ -382,6 +388,7 @@ else
       mfilename, pid, nprocs)
     myants_antsRegistration(job1);
   end
+
 end
 isdone(fname_out, pid, nprocs);
 pid = pid+1;
@@ -412,7 +419,7 @@ if ~job.useants
       mfilename, pid, nprocs)
     myspm_norm(struct('fname_moving',[p1,'/ua',f1,e1], ...
       'fname_deform',fname_def, 'vox_mm',job.vox_mm, 'interp',4, ...
-      'bbox_mm',job.bbox));
+      'bbox_mm',job.bbox_mm));
   end
   
   % quality check:
@@ -428,13 +435,18 @@ if ~job.useants
   end
 else
   % CREATE FUNCTIONAL REFERENCE AT GIVEN VOXE RESOLUTION
-  if ~isfile('mni_funcref.nii.gz')
+  if ~isfile('mni_funcref.nii')
     % reslice
     system(['mri_convert -vs ',num2str(job.vox_mm),...
       ' mni_brain.nii.gz mni_funcref.nii'])
     % bounding-box
-    myspm_boundingbox('mni_funcref.nii', job.bbox_mm,...
-      'mni_funcref.nii')
+    if isfield(job,'bbox_mm') && ~isempty(job.bbox_mm)
+      myspm_boundingbox('mni_funcref.nii', job.bbox_mm,...
+        'mni_funcref.nii')
+    else
+      myspm_boundingbox('mni_funcref.nii', 'canon',...
+        'mni_funcref.nii')
+    end
   end
   
   % COMBINE TRANSFORMS
@@ -442,16 +454,16 @@ else
   fn_reg_epi_to_t1w = ['mmeanua',f1,'_to_bm',f2,'_stage0_Composite.h5'];
   fn_reg_t1w_to_mni = ['bm',f2,'_to_mni_brain_stage2_Composite.h5'];
   job1 = struct('fname_out',fn_warp, ...
-    'fname_fixed','mni_funcref.nii.gz',...
+    'fname_fixed','mni_funcref.nii',...
     'transforms',{{fn_reg_epi_to_t1w,0;fn_reg_t1w_to_mni,0}});
   if ~isfile(fn_warp)
     myants_combinetransforms(job1)
   end
   
   % APPLY ON TIMESERIES
-  fname_out = [p1,'/ua',f1,'_mni',e1];
+  fname_out = [p1,'/xua',f1,e1];
   job1 = struct('fname_moving',[p1,'/ua',f1,e1], ...
-    'fname_fixed','mni_funcref.nii.gz', 'transforms',{{fn_warp,0}}, ...
+    'fname_fixed','mni_funcref.nii', 'transforms',{{fn_warp,0}}, ...
     'fname_out',fname_out);
   if ~isfile(fname_out)
     fprintf('[%s:%i/%i] resampling EPI in MNI152 using ANTs..\n',...
@@ -470,8 +482,8 @@ if job.fwhm_mm
     fname_in = [p1,'/wua',f1,e1];
     fname_out = [p1,'/s',num2str(job.fwhm_mm(1)),'wua',f1,e1];
   else
-    fname_in = [p1,'/ua',f1,'_mni,',e1];
-    fname_out = [p1,'/s',num2str(job.fwhm_mm(1)),'ua',f1,'_mni',e1];
+    fname_in = [p1,'/xua',f1,e1];
+    fname_out = [p1,'/s',num2str(job.fwhm_mm(1)),'xua',f1,e1];
   end
   if ~isfile(fname_out)
     fprintf('[%s:%i/%i] smoothing..\n',mfilename, pid, nprocs);
@@ -481,7 +493,7 @@ if job.fwhm_mm
   pid = pid+1;
 end
 
-
+diary off % CLOSE (UPDATE)
 end
 
 %% Subroutines:
@@ -489,10 +501,13 @@ function isdone(fname_out, pid, nprocs)
 if exist(fname_out,'file')
   fprintf('[myspm_fmriprep12:%i/%i] DONE:', pid, nprocs);
   ls(fname_out)
+  diary('myspm_fmriprep12.log') % CLOSE (UPDATE)
+  diary('myspm_fmriprep12.log') % open (wait)
 else
   fprintf('[myspm_fmriprep12:%i/%i] FAILED to create: %s', ...
     pid, nprocs, fname_out);
   warning('PROCESS ABORTED!');
+  diary off % CLOSE (UPDATE)
   return
 end
 end
