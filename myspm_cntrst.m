@@ -154,7 +154,6 @@ else
   con.delete = 1;
 end
 if con.delete == 1
-  unix(['rm -f ',JOB.dir_glm,'/spm*']);
   unix(['rm -f ',JOB.dir_glm,'/con*']);
   unix(['rm -f ',JOB.dir_glm,'/sigclus*']);
 end
@@ -175,6 +174,8 @@ if ~isfield(JOB,'thres')
 end
 if ~isfield(JOB,'NOREPORT') && ~isfield(JOB,'noreport')
   JOB = myspm_result(JOB);
+else
+  myps2pdf(JOB.fname_spm_fig)
 end
 
 

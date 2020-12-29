@@ -330,8 +330,13 @@ else
   if ~isfield(JOB,'microt0')
     JOB.microt0 = 0.5;
   end
-  matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t0 = round(JOB.microt0 * 16); % middle point after STC
-  matlabbatch{1}.spm.stats.fmri_spec.bases.hrf.derivs = [0 0];
+  matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t0 = ...
+    round(JOB.microt0 * 16); % middle point after STC
+  if isfield(JOB,'hrfderivs')
+    matlabbatch{1}.spm.stats.fmri_spec.bases.hrf.derivs = JOB.hrfderivs;
+  else
+    matlabbatch{1}.spm.stats.fmri_spec.bases.hrf.derivs = [0 0];
+  end
 end
 matlabbatch{1}.spm.stats.fmri_spec.volt = 1;
 matlabbatch{1}.spm.stats.fmri_spec.global = 'None';
@@ -340,27 +345,33 @@ sess = [];
 for j = 1:JOB.NumSess
   % find image files
   for t = 1:JOB.NumFrames(j)
-    sess(j).scans{t,1} = [JOB.filenames{j},',',num2str(t)]; % this must be <Tx1>
+    sess(j).scans{t,1} = ...
+      [JOB.filenames{j},',',num2str(t)]; % this must be <Tx1>
   end
   [dir_sess,~,~] = myfileparts(sess(j).scans{t,1});
-  sess(j).cond = struct('name',{}, 'onset',{}, 'duration',{}, 'tmod',{}, 'pmod', {});
+  sess(j).cond = ...
+    struct('name',{}, 'onset',{}, 'duration',{}, 'tmod',{}, 'pmod', {});
   if JOB.NumCond
     for k = 1:JOB.NumCond
-      % onset as a vector
-      sess(j).cond(k).onset = JOB.cond(j,k).onset;
-      % condition name
-      sess(j).cond(k).name  = JOB.cond(j,k).name;
-      % condition duration
-      sess(j).cond(k).duration = JOB.cond(j,k).dur;
-      % For temporal modulation:
-      sess(j).cond(k).tmod = 0;
-      % For PARAMETRIC modulation (only one & 1st-order parameter)
-      if isfield(JOB.cond(j,k),'paramname') && ~isempty(JOB.cond(j,k).paramname)
-        sess(j).cond(k).pmod(1).name  = JOB.cond(j,k).paramname;
-        sess(j).cond(k).pmod(1).param = JOB.cond(j,k).param;
-        sess(j).cond(k).pmod(1).poly  = 1;
-      else
-        sess(j).cond(k).pmod = struct('name', {}, 'param', {}, 'poly', {});
+      if ~isempty(JOB.cond(j,k).name)
+        % onset as a vector
+        sess(j).cond(k).onset = JOB.cond(j,k).onset;
+        % condition name
+        sess(j).cond(k).name  = JOB.cond(j,k).name;
+        % condition duration
+        sess(j).cond(k).duration = JOB.cond(j,k).dur;
+        % For temporal modulation:
+        sess(j).cond(k).tmod = 0;
+        % For PARAMETRIC modulation (only one & 1st-order parameter)
+        if isfield(JOB.cond(j,k),'paramname') ...
+            && ~isempty(JOB.cond(j,k).paramname)
+          sess(j).cond(k).pmod(1).name  = JOB.cond(j,k).paramname;
+          sess(j).cond(k).pmod(1).param = JOB.cond(j,k).param;
+          sess(j).cond(k).pmod(1).poly  = 1;
+        else
+          sess(j).cond(k).pmod = struct(...
+            'name', {}, 'param', {}, 'poly', {});
+        end
       end
     end % loop for conditions
   end
@@ -398,7 +409,8 @@ for j = 1:JOB.NumSess
         xconv = spm_orth(xconv);
         % 4. add regressors
         for i = 1:xBF.order
-          sess(j).regress(l).name = sprintf('%s*fir(%i)',JOB.reg(j,k).name,i);
+          sess(j).regress(l).name = ...
+            sprintf('%s*fir(%i)',JOB.reg(j,k).name,i);
           sess(j).regress(l).val = xconv(:,i);
           l=l+1;
         end
@@ -461,7 +473,6 @@ for j = 1:JOB.NumSess
     fprintf(['[1d] Found %i frames exceeding a threshold of %f mm in ',...
       'dTrans/dt or %f deg in dRot/dt\n'], ...
       numel(idx), [1 1]*JOB.scrb_thres);
-    
     if numel(idx)
       for k=1:numel(idx)
         sess(j).regress(l).name=['scrb',num2str(k)];
@@ -478,8 +489,8 @@ for j = 1:JOB.NumSess
   matlabbatch{1}.spm.stats.fmri_spec.sess = sess;
   matlabbatch{1}.spm.stats.fmri_spec.fact = struct('name', {}, 'levels', {});
   if isfield(JOB,'masking')
-    disp(['[1f] A mask is given: ',JOB.masking]);
-    matlabbatch{1}.spm.stats.fmri_spec.mask = {JOB.masking};
+    disp(['[1f] A mask is given: ',JOB.masking{j}]);
+    matlabbatch{1}.spm.stats.fmri_spec.mask = JOB.masking(j);
   end
   if isfield(JOB,'maskthres')
     disp(['[1f] Masking threshold (wrt global) is given: ',...
